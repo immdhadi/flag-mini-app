@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>پرچم در اهتزاز</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 30%, #234 0%, #0f1a2b 65%, #060b13 100%);
+    touch-action: none;
+  }
+  canvas { display: block; }
+  #hint {
+    position: fixed;
+    bottom: 18px;
+    left: 0; right: 0;
+    text-align: center;
+    font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+    font-size: 13px;
+    color: rgba(255,255,255,0.55);
+  }
+</style>
+</head>
+<body>
+<canvas id="flagCanvas"></canvas>
+<div id="hint">پرچم با نسیم آروم تکون می‌خوره 🍃</div>
+
+<script>
+(function () {
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    document.body.style.background = tg.themeParams && tg.themeParams.bg_color
+      ? tg.themeParams.bg_color
+      : "";
+  }
+
+  const canvas = document.getElementById("flagCanvas");
+  const ctx = canvas.getContext("2d");
+  const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+
+  function resize() {
+    canvas.width = Math.floor(window.innerWidth * DPR);
+    canvas.height = Math.floor(window.innerHeight * DPR);
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // ---------- بارگذاری تصویر پرچم ----------
+  const flagImg = new Image();
+  let imgReady = false;
+  flagImg.onload = () => { imgReady = true; };
+  flagImg.src = "flag.jpg";
+
+  // ---------- پارامترهای موج (اینجا رو می‌تونی برای تغییر ظاهر باد ویرایش کنی) ----------
+  const STRIPS = 80;        // تعداد نوارهای عمودی؛ بیشتر = نرم‌تر ولی سنگین‌تر
+  const AMPLITUDE = 24;     // حداکثر دامنه‌ی تاب‌خوردن در لبه‌ی آزاد پرچم (px)
+  const WAVE_SPEED = 2.1;   // سرعت حرکت موج اصلی
+  const WAVE_FREQ = 2.3;    // تعداد قوس‌های موج اصلی روی طول پرچم
+  const RIPPLE_SPEED = 3.6; // سرعت موج ریز (چروک پارچه)
+  const RIPPLE_FREQ = 6.5;  // تعداد قوس‌های موج ریز
+  const RIPPLE_AMP = 0.32;  // دامنه‌ی موج ریز نسبت به AMPLITUDE
+  const GUST_SPEED = 0.35;  // سرعت تغییر شدت باد (وزش‌های نامنظم)
+
+  function waveOffset(u, t) {
+    const envelope = Math.pow(u, 1.25);
+    const gust = 1 + 0.3 * Math.sin(t * GUST_SPEED) + 0.12 * Math.sin(t * GUST_SPEED * 2.7 + 1.3);
+    const main = Math.sin(u * WAVE_FREQ * Math.PI * 2 - t * WAVE_SPEED);
+    const ripple = Math.sin(u * RIPPLE_FREQ * Math.PI * 2 - t * RIPPLE_SPEED) * RIPPLE_AMP;
+    return envelope * (main + ripple) * AMPLITUDE * gust;
+  }
+
+  function drawFallback(flagX, flagY, flagW, flagH) {
+    const colors = ["#1f4fd6", "#ffffff", "#d61f1f"];
+    const bandH = flagH / 3;
+    for (let b = 0; b < 3; b++) {
+      ctx.fillStyle = colors[b];
+      ctx.fillRect(flagX, flagY + b * bandH, flagW, bandH);
+    }
+  }
+
+  function draw(tsMs) {
+    const t = tsMs / 1000;
+    ctx.save();
+    ctx.scale(DPR, DPR);
+    const W = window.innerWidth, H = window.innerHeight;
+    ctx.clearRect(0, 0, W, H);
+
+    const flagW = Math.min(W * 0.72, 460);
+    const flagH = flagW * (imgReady ? flagImg.height / flagImg.width : 0.62);
+    const poleX = W / 2 - flagW / 2 - 12;
+    const poleTopY = H / 2 - flagH / 2 - 50;
+    const poleBottomY = H / 2 + flagH / 2 + 40;
+    const flagX = poleX + 5;
+    const flagY = H / 2 - flagH / 2;
+
+    const grad = ctx.createRadialGradient(W / 2, H / 2 + flagH / 2 + 60, 10, W / 2, H / 2 + flagH / 2 + 60, flagW * 0.6);
+    grad.addColorStop(0, "rgba(0,0,0,0.35)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = "#9a9a9a";
+    ctx.fillRect(poleX - 4, poleTopY, 8, poleBottomY - poleTopY);
+    ctx.beginPath();
+    ctx.arc(poleX, poleTopY - 6, 9, 0, Math.PI * 2);
+    ctx.fillStyle = "#d6b13a";
+    ctx.fill();
+
+    if (!imgReady) {
+      drawFallback(flagX, flagY, flagW, flagH);
+      ctx.restore();
+      return;
+    }
+
+    const stripW = flagW / STRIPS;
+    const srcStripW = flagImg.width / STRIPS;
+
+    for (let i = 0; i < STRIPS; i++) {
+      const u1 = i / STRIPS;
+      const u2 = (i + 1) / STRIPS;
+      const y1 = waveOffset(u1, t);
+      const y2 = waveOffset(u2, t);
+      const slope = (y2 - y1) / stripW;
+      const shade = Math.max(-0.38, Math.min(0.38, -slope * 1.6));
+
+      const x = flagX + i * stripW;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x - 0.5, flagY - AMPLITUDE - 2, stripW + 1.5, flagH + AMPLITUDE * 2 + 4);
+      ctx.clip();
+
+      ctx.drawImage(
+        flagImg,
+        i * srcStripW, 0, srcStripW, flagImg.height,
+        x, flagY + y1, stripW + 1.5, flagH
+      );
+
+      ctx.fillStyle = shade >= 0
+        ? `rgba(255,255,255,${shade})`
+        : `rgba(0,0,0,${-shade})`;
+      ctx.fillRect(x - 0.5, flagY - AMPLITUDE - 2, stripW + 1.5, flagH + AMPLITUDE * 2 + 4);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  function loop(ts) {
+    draw(ts);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
