@@ -5,17 +5,16 @@
 <meta charset="UTF-8">
 
 <meta name="viewport"
-content="width=device-width,
-initial-scale=1.0,
-viewport-fit=cover,
-user-scalable=no">
+      content="width=device-width,
+               initial-scale=1.0,
+               viewport-fit=cover,
+               user-scalable=no">
 
 <title>Realistic Flag</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
-
 * {
     box-sizing: border-box;
 }
@@ -32,16 +31,15 @@ body {
 
     background:
         radial-gradient(
-            ellipse at 48% 42%,
-            #3a2b1d 0%,
-            #21170e 38%,
-            #0d0805 75%,
-            #030201 100%
+            ellipse at 50% 45%,
+            #38291b 0%,
+            #20150c 42%,
+            #0b0704 78%,
+            #020100 100%
         );
-}
 
-body {
     touch-action: none;
+    overscroll-behavior: none;
 }
 
 canvas {
@@ -52,9 +50,11 @@ canvas {
     height: 100%;
 
     display: block;
-}
 
+    touch-action: none;
+}
 </style>
+
 </head>
 
 <body>
@@ -85,7 +85,7 @@ if (tg) {
 
 
 /* =========================================================
-   WEBGL
+   CANVAS
 ========================================================= */
 
 const canvas =
@@ -94,7 +94,8 @@ const canvas =
 const gl =
     canvas.getContext("webgl", {
         alpha: false,
-        antialias: true
+        antialias: true,
+        premultipliedAlpha: false
     });
 
 if (!gl) {
@@ -102,11 +103,11 @@ if (!gl) {
     document.body.innerHTML = `
         <div style="
             color:white;
-            font-family:sans-serif;
             text-align:center;
             padding:40px;
+            font-family:sans-serif;
         ">
-            WebGL روی این دستگاه پشتیبانی نمی‌شود.
+        WebGL روی این دستگاه پشتیبانی نمی‌شود.
         </div>
     `;
 
@@ -118,117 +119,170 @@ if (!gl) {
    VERTEX SHADER
 ========================================================= */
 
-const vertexSource = `
+const vertexShaderSource = `
 
 precision highp float;
 
 attribute vec2 a_position;
 attribute vec2 a_uv;
 
+uniform float u_time;
+
+uniform vec2 u_wind;
+
+uniform float u_windPower;
+
 varying vec2 v_uv;
+
 varying float v_wave;
 
-uniform float u_time;
+varying float v_light;
 
 
 /* ---------------------------------------------------------
-   موج پارچه
+   ترکیب موج‌های پارچه
 --------------------------------------------------------- */
 
-float fabricWave(vec2 uv) {
+float fabricWave(vec2 uv)
+{
 
     float u = uv.x;
     float v = uv.y;
 
-    /*
-       موج بزرگ پارچه
-    */
-
-    float wave1 =
-        sin(
-            u * 15.0
-            - u_time * 1.35
-            + v * 1.7
-        );
-
-
-    /*
-       موج دوم
-    */
-
-    float wave2 =
-        sin(
-            u * 31.0
-            - u_time * 2.1
-            - v * 4.0
-        );
-
-
-    /*
-       چین ریز
-    */
-
-    float wave3 =
-        sin(
-            u * 65.0
-            - u_time * 3.0
-            + v * 12.0
-        );
-
-
-    /*
-       نزدیک میله کمتر حرکت کند
-    */
-
     float envelope =
         smoothstep(
             0.0,
-            0.20,
+            0.16,
             u
         );
 
 
+    /*
+       موج بزرگ
+    */
+
+    float wave1 =
+        sin(
+            u * 13.0
+            -
+            u_time * 1.15
+            +
+            v * 1.8
+        );
+
+
+    /*
+       موج متوسط
+    */
+
+    float wave2 =
+        sin(
+            u * 27.0
+            -
+            u_time * 1.85
+            +
+            v * 5.0
+        );
+
+
+    /*
+       چین‌های ریز
+    */
+
+    float wave3 =
+        sin(
+            u * 58.0
+            -
+            u_time * 2.7
+            +
+            v * 11.0
+        );
+
+
+    /*
+       موج ناشی از دست
+    */
+
+    float windWave =
+        sin(
+            u * 17.0
+            -
+            u_time * 1.4
+            +
+            v * 5.0
+        );
+
+
+    float result =
+        wave1 * 0.52
+        +
+        wave2 * 0.25
+        +
+        wave3 * 0.10
+        +
+        windWave * u_windPower * 0.22;
+
+
     return
-        (
-            wave1 * 0.70
-            +
-            wave2 * 0.22
-            +
-            wave3 * 0.08
-        )
-        *
-        envelope;
+        result
+        * envelope;
 }
 
 
-void main() {
+/* ---------------------------------------------------------
+   MAIN
+--------------------------------------------------------- */
+
+void main()
+{
 
     vec2 uv =
         a_uv;
+
 
     float wave =
         fabricWave(uv);
 
 
     /*
-       عمق چین
+       اثر مستقیم حرکت دست
     */
 
-    float z =
+    float dragX =
+        u_wind.x
+        *
+        uv.x
+        *
+        uv.x;
+
+
+    float dragY =
+        u_wind.y
+        *
+        uv.x
+        *
+        uv.x;
+
+
+    /*
+       موج عمق پارچه
+    */
+
+    float depth =
         wave * 0.16;
 
 
     /*
-       عرض پرچم
+       عرض
     */
 
     float x =
         (uv.x - 0.5)
-        * 1.55;
+        * 1.60;
 
 
     /*
-       ارتفاع پرچم
+       ارتفاع
     */
 
     float y =
@@ -237,12 +291,22 @@ void main() {
 
 
     /*
-       لبه آزاد کمی نامنظم
+       حرکت با دست
+    */
+
+    x += dragX * 0.32;
+
+    y += dragY * 0.32;
+
+
+    /*
+       لبه آزاد پرچم
+       نامنظم و طبیعی
     */
 
     float edge =
         smoothstep(
-            0.52,
+            0.55,
             1.0,
             uv.x
         );
@@ -250,8 +314,9 @@ void main() {
 
     y +=
         sin(
-            uv.x * 3.14159
-            - u_time * 0.8
+            uv.x * 6.0
+            -
+            u_time * 0.7
         )
         *
         0.045
@@ -259,11 +324,23 @@ void main() {
         edge;
 
 
+    /*
+       کمی افت طبیعی پارچه
+    */
+
+    y -=
+        uv.x
+        *
+        uv.x
+        *
+        0.025;
+
+
     gl_Position =
         vec4(
             x,
             y,
-            z,
+            depth,
             1.0
         );
 
@@ -271,8 +348,22 @@ void main() {
     v_uv =
         uv;
 
+
     v_wave =
         wave;
+
+
+    /*
+       نور پایه
+    */
+
+    v_light =
+        0.5
+        +
+        0.5 *
+        sin(
+            wave * 4.0
+        );
 }
 
 `;
@@ -282,22 +373,27 @@ void main() {
    FRAGMENT SHADER
 ========================================================= */
 
-const fragmentSource = `
+const fragmentShaderSource = `
 
 precision highp float;
 
 uniform sampler2D u_texture;
+
 uniform float u_time;
 
 varying vec2 v_uv;
+
 varying float v_wave;
+
+varying float v_light;
 
 
 /* ---------------------------------------------------------
-   Noise
+   HASH
 --------------------------------------------------------- */
 
-float hash(vec2 p) {
+float hash(vec2 p)
+{
 
     return fract(
         sin(
@@ -309,12 +405,18 @@ float hash(vec2 p) {
                 )
             )
         )
-        * 43758.5453
+        *
+        43758.5453123
     );
 }
 
 
-float noise(vec2 p) {
+/* ---------------------------------------------------------
+   NOISE
+--------------------------------------------------------- */
+
+float noise(vec2 p)
+{
 
     vec2 i =
         floor(p);
@@ -336,33 +438,46 @@ float noise(vec2 p) {
 
     float b =
         hash(
-            i + vec2(1.0, 0.0)
+            i +
+            vec2(
+                1.0,
+                0.0
+            )
         );
 
     float c =
         hash(
-            i + vec2(0.0, 1.0)
+            i +
+            vec2(
+                0.0,
+                1.0
+            )
         );
 
     float d =
         hash(
-            i + vec2(1.0, 1.0)
+            i +
+            vec2(
+                1.0,
+                1.0
+            )
         );
 
 
     return mix(
-        mix(a, b, f.x),
-        mix(c, d, f.x),
+        mix(a,b,f.x),
+        mix(c,d,f.x),
         f.y
     );
 }
 
 
 /* ---------------------------------------------------------
-   ارتفاع پارچه
+   FABRIC
 --------------------------------------------------------- */
 
-float cloth(vec2 uv) {
+float cloth(vec2 uv)
+{
 
     float u =
         uv.x;
@@ -371,45 +486,51 @@ float cloth(vec2 uv) {
         uv.y;
 
 
+    float envelope =
+        smoothstep(
+            0.0,
+            0.16,
+            u
+        );
+
+
     float a =
         sin(
-            u * 15.0
-            - u_time * 1.35
-            + v * 1.7
+            u * 13.0
+            -
+            u_time * 1.15
+            +
+            v * 1.8
         );
 
 
     float b =
         sin(
-            u * 31.0
-            - u_time * 2.1
-            - v * 4.0
+            u * 27.0
+            -
+            u_time * 1.85
+            +
+            v * 5.0
         );
 
 
     float c =
         sin(
-            u * 65.0
-            - u_time * 3.0
-            + v * 12.0
-        );
-
-
-    float envelope =
-        smoothstep(
-            0.0,
-            0.20,
-            u
+            u * 58.0
+            -
+            u_time * 2.7
+            +
+            v * 11.0
         );
 
 
     return
         (
-            a * 0.70
+            a * 0.52
             +
-            b * 0.22
+            b * 0.25
             +
-            c * 0.08
+            c * 0.10
         )
         *
         envelope;
@@ -420,48 +541,49 @@ float cloth(vec2 uv) {
    نورپردازی چین
 --------------------------------------------------------- */
 
-float clothLighting(vec2 uv) {
+float clothLighting(vec2 uv)
+{
 
-    float d =
-        0.0025;
+    float e =
+        0.002;
 
 
-    float left =
+    float l =
         cloth(
             uv -
-            vec2(d, 0.0)
+            vec2(e,0.0)
         );
 
 
-    float right =
+    float r =
         cloth(
             uv +
-            vec2(d, 0.0)
+            vec2(e,0.0)
         );
 
 
-    float up =
+    float t =
         cloth(
             uv +
-            vec2(0.0, d)
+            vec2(0.0,e)
         );
 
 
-    float down =
+    float b =
         cloth(
             uv -
-            vec2(0.0, d)
+            vec2(0.0,e)
         );
 
 
     float dx =
-        (right - left)
-        * 2.5;
+        (r-l)
+        * 3.0;
 
 
     float dy =
-        (up - down)
-        * 2.5;
+        (t-b)
+        * 3.0;
 
 
     vec3 normal =
@@ -474,10 +596,6 @@ float clothLighting(vec2 uv) {
         );
 
 
-    /*
-       نور سینمایی از بالا چپ
-    */
-
     vec3 light =
         normalize(
             vec3(
@@ -488,17 +606,18 @@ float clothLighting(vec2 uv) {
         );
 
 
-    float diffuse =
-        dot(
-            normal,
-            light
-        );
-
-
     return
-        0.55
+        0.62
         +
-        diffuse * 0.45;
+        max(
+            dot(
+                normal,
+                light
+            ),
+            0.0
+        )
+        *
+        0.48;
 }
 
 
@@ -506,17 +625,18 @@ float clothLighting(vec2 uv) {
    MAIN
 --------------------------------------------------------- */
 
-void main() {
+void main()
+{
 
     vec2 uv =
         v_uv;
 
 
     /*
-       طرح اصلی پرچم
+       تصویر اصلی
     */
 
-    vec4 flag =
+    vec4 tex =
         texture2D(
             u_texture,
             uv
@@ -532,47 +652,49 @@ void main() {
 
 
     /*
-       بافت تار و پود
+       تار پارچه
     */
 
-    float thread1 =
+    float threadX =
         sin(
-            uv.x * 850.0
+            uv.x * 900.0
         );
 
 
-    float thread2 =
+    float threadY =
         sin(
-            uv.y * 850.0
+            uv.y * 900.0
         );
 
 
     float threads =
         (
-            thread1
+            threadX
             +
-            thread2
+            threadY
         )
-        * 0.010;
+        *
+        0.007;
 
 
     /*
-       نویز خیلی ظریف پارچه
+       بافت بسیار ریز
     */
 
     float grain =
         noise(
-            uv * 450.0
+            uv * 320.0
         )
-        * 0.025;
+        *
+        0.018;
 
 
     /*
-       نور روی پارچه
+       رنگ نهایی
     */
 
     vec3 color =
-        flag.rgb
+        tex.rgb
         *
         lighting;
 
@@ -590,55 +712,37 @@ void main() {
 
 
     /*
-       عمق چین‌ها
+       عمق چین
     */
 
     color *=
         1.0
         +
-        v_wave * 0.22;
+        v_wave * 0.20;
 
 
     /*
-       کمی تیرگی در کناره‌ها
+       کمی تیرگی در لبه‌ها
     */
 
-    float edgeX =
+    float edge =
         smoothstep(
             0.0,
-            0.045,
+            0.05,
             uv.x
         )
         *
         smoothstep(
             1.0,
-            0.955,
+            0.94,
             uv.x
-        );
-
-
-    float edgeY =
-        smoothstep(
-            0.0,
-            0.035,
-            uv.y
-        )
-        *
-        smoothstep(
-            1.0,
-            0.965,
-            uv.y
         );
 
 
     color *=
-        0.80
+        0.84
         +
-        edgeX
-        *
-        edgeY
-        *
-        0.20;
+        edge * 0.16;
 
 
     gl_FragColor =
@@ -652,10 +756,11 @@ void main() {
 
 
 /* =========================================================
-   SHADER CREATION
+   SHADER FUNCTION
 ========================================================= */
 
-function createShader(type, source) {
+function makeShader(type, source)
+{
 
     const shader =
         gl.createShader(type);
@@ -691,36 +796,39 @@ function createShader(type, source) {
 }
 
 
-const vertexShader =
-    createShader(
-        gl.VERTEX_SHADER,
-        vertexSource
-    );
-
-
-const fragmentShader =
-    createShader(
-        gl.FRAGMENT_SHADER,
-        fragmentSource
-    );
-
-
 /* =========================================================
    PROGRAM
 ========================================================= */
 
+const vertexShader =
+    makeShader(
+        gl.VERTEX_SHADER,
+        vertexShaderSource
+    );
+
+
+const fragmentShader =
+    makeShader(
+        gl.FRAGMENT_SHADER,
+        fragmentShaderSource
+    );
+
+
 const program =
     gl.createProgram();
+
 
 gl.attachShader(
     program,
     vertexShader
 );
 
+
 gl.attachShader(
     program,
     fragmentShader
 );
+
 
 gl.linkProgram(
     program
@@ -734,33 +842,21 @@ if (
     )
 ) {
 
-    console.error(
-        gl.getProgramInfoLog(program)
-    );
-
     throw new Error(
         gl.getProgramInfoLog(program)
     );
 }
 
 
-gl.useProgram(
-    program
-);
+gl.useProgram(program);
 
 
 /* =========================================================
-   MESH
+   FABRIC MESH
 ========================================================= */
 
-/*
-   180 × 90
-   تعداد vertices کمتر از 65535 است،
-   بنابراین Uint16 کاملاً کافی است.
-*/
-
 const COLS = 180;
-const ROWS = 90;
+const ROWS = 100;
 
 const vertices = [];
 const indices = [];
@@ -784,10 +880,6 @@ for (
         const v =
             y / ROWS;
 
-
-        /*
-           position + UV
-        */
 
         vertices.push(
             u,
@@ -830,16 +922,18 @@ for (
 
 
 /* =========================================================
-   BUFFERS
+   BUFFER
 ========================================================= */
 
 const vertexBuffer =
     gl.createBuffer();
 
+
 gl.bindBuffer(
     gl.ARRAY_BUFFER,
     vertexBuffer
 );
+
 
 gl.bufferData(
     gl.ARRAY_BUFFER,
@@ -851,10 +945,12 @@ gl.bufferData(
 const indexBuffer =
     gl.createBuffer();
 
+
 gl.bindBuffer(
     gl.ELEMENT_ARRAY_BUFFER,
     indexBuffer
 );
+
 
 gl.bufferData(
     gl.ELEMENT_ARRAY_BUFFER,
@@ -928,6 +1024,20 @@ const timeLocation =
     );
 
 
+const windLocation =
+    gl.getUniformLocation(
+        program,
+        "u_wind"
+    );
+
+
+const windPowerLocation =
+    gl.getUniformLocation(
+        program,
+        "u_windPower"
+    );
+
+
 const textureLocation =
     gl.getUniformLocation(
         program,
@@ -950,19 +1060,8 @@ gl.bindTexture(
 
 
 /*
-   یک تصویر موقت سفید
-   تا قبل از لود شدن flag.jpg
-   صفحه سیاه نشود.
+   ابتدا یک پیکسل سفید
 */
-
-const whitePixel =
-    new Uint8Array([
-        255,
-        255,
-        255,
-        255
-    ]);
-
 
 gl.texImage2D(
     gl.TEXTURE_2D,
@@ -973,15 +1072,14 @@ gl.texImage2D(
     0,
     gl.RGBA,
     gl.UNSIGNED_BYTE,
-    whitePixel
+    new Uint8Array([
+        255,
+        255,
+        255,
+        255
+    ])
 );
 
-
-/*
-   مهم:
-   بدون mipmap
-   تا تصاویر با هر ابعادی کار کنند.
-*/
 
 gl.texParameteri(
     gl.TEXTURE_2D,
@@ -989,17 +1087,20 @@ gl.texParameteri(
     gl.LINEAR
 );
 
+
 gl.texParameteri(
     gl.TEXTURE_2D,
     gl.TEXTURE_MAG_FILTER,
     gl.LINEAR
 );
 
+
 gl.texParameteri(
     gl.TEXTURE_2D,
     gl.TEXTURE_WRAP_S,
     gl.CLAMP_TO_EDGE
 );
+
 
 gl.texParameteri(
     gl.TEXTURE_2D,
@@ -1009,14 +1110,16 @@ gl.texParameteri(
 
 
 /* =========================================================
-   LOAD FLAG
+   FLAG IMAGE
 ========================================================= */
 
 const flagImage =
     new Image();
 
 
-flagImage.onload = function () {
+flagImage.onload =
+function()
+{
 
     gl.bindTexture(
         gl.TEXTURE_2D,
@@ -1041,19 +1144,20 @@ flagImage.onload = function () {
 
 
     console.log(
-        "flag.jpg loaded:",
+        "FLAG LOADED:",
         flagImage.width,
         flagImage.height
     );
 };
 
 
-flagImage.onerror = function () {
+flagImage.onerror =
+function()
+{
 
     console.error(
-        "ERROR: flag.jpg پیدا نشد!"
+        "flag.jpg پیدا نشد!"
     );
-
 };
 
 
@@ -1065,7 +1169,8 @@ flagImage.src =
    RESIZE
 ========================================================= */
 
-function resize() {
+function resize()
+{
 
     const dpr =
         Math.min(
@@ -1074,31 +1179,32 @@ function resize() {
         );
 
 
-    const width =
+    const w =
         window.innerWidth;
 
-    const height =
+
+    const h =
         window.innerHeight;
 
 
     canvas.width =
         Math.floor(
-            width * dpr
+            w * dpr
         );
 
 
     canvas.height =
         Math.floor(
-            height * dpr
+            h * dpr
         );
 
 
     canvas.style.width =
-        width + "px";
+        w + "px";
 
 
     canvas.style.height =
-        height + "px";
+        h + "px";
 
 
     gl.viewport(
@@ -1115,26 +1221,345 @@ window.addEventListener(
     resize
 );
 
+
 resize();
+
+
+/* =========================================================
+   TOUCH / POINTER PHYSICS
+========================================================= */
+
+let pointerDown =
+    false;
+
+
+let lastX =
+    0;
+
+
+let lastY =
+    0;
+
+
+let windX =
+    0;
+
+
+let windY =
+    0;
+
+
+let targetWindX =
+    0;
+
+
+let targetWindY =
+    0;
+
+
+let windPower =
+    0;
+
+
+let targetPower =
+    0;
+
+
+/*
+   برای حرکت بسیار سریع
+   محدودیت می‌گذاریم تا پرچم
+   منفجر نشود.
+*/
+
+function clamp(
+    value,
+    min,
+    max
+)
+{
+
+    return Math.max(
+        min,
+        Math.min(
+            max,
+            value
+        )
+    );
+}
+
+
+/* ---------------------------------------------------------
+   شروع لمس
+--------------------------------------------------------- */
+
+function pointerStart(e)
+{
+
+    pointerDown =
+        true;
+
+
+    const p =
+        e.touches
+        ? e.touches[0]
+        : e;
+
+
+    lastX =
+        p.clientX;
+
+
+    lastY =
+        p.clientY;
+
+
+    targetWindX =
+        0;
+
+
+    targetWindY =
+        0;
+
+
+    targetPower =
+        0;
+
+
+    e.preventDefault();
+}
+
+
+/* ---------------------------------------------------------
+   حرکت انگشت
+--------------------------------------------------------- */
+
+function pointerMove(e)
+{
+
+    if (!pointerDown)
+        return;
+
+
+    const p =
+        e.touches
+        ? e.touches[0]
+        : e;
+
+
+    const dx =
+        p.clientX
+        -
+        lastX;
+
+
+    const dy =
+        p.clientY
+        -
+        lastY;
+
+
+    lastX =
+        p.clientX;
+
+
+    lastY =
+        p.clientY;
+
+
+    /*
+       سرعت حرکت دست
+    */
+
+    targetWindX =
+        clamp(
+            dx * 0.035,
+            -0.65,
+            0.65
+        );
+
+
+    targetWindY =
+        clamp(
+            -dy * 0.035,
+            -0.65,
+            0.65
+        );
+
+
+    const speed =
+        Math.sqrt(
+            dx * dx
+            +
+            dy * dy
+        );
+
+
+    targetPower =
+        clamp(
+            speed * 0.055,
+            0.0,
+            1.0
+        );
+
+
+    e.preventDefault();
+}
+
+
+/* ---------------------------------------------------------
+   پایان لمس
+--------------------------------------------------------- */
+
+function pointerEnd(e)
+{
+
+    pointerDown =
+        false;
+
+    e.preventDefault();
+}
+
+
+/* ---------------------------------------------------------
+   Touch
+--------------------------------------------------------- */
+
+canvas.addEventListener(
+    "touchstart",
+    pointerStart,
+    {
+        passive:false
+    }
+);
+
+
+canvas.addEventListener(
+    "touchmove",
+    pointerMove,
+    {
+        passive:false
+    }
+);
+
+
+canvas.addEventListener(
+    "touchend",
+    pointerEnd,
+    {
+        passive:false
+    }
+);
+
+
+canvas.addEventListener(
+    "touchcancel",
+    pointerEnd,
+    {
+        passive:false
+    }
+);
+
+
+/* ---------------------------------------------------------
+   Mouse
+--------------------------------------------------------- */
+
+canvas.addEventListener(
+    "mousedown",
+    pointerStart
+);
+
+
+canvas.addEventListener(
+    "mousemove",
+    pointerMove
+);
+
+
+canvas.addEventListener(
+    "mouseup",
+    pointerEnd
+);
+
+
+canvas.addEventListener(
+    "mouseleave",
+    pointerEnd
+);
+
+
+/* =========================================================
+   PHYSICS LOOP
+========================================================= */
+
+function updatePhysics()
+{
+
+    if (!pointerDown)
+    {
+
+        /*
+           بعد از رها کردن
+           باد به تدریج می‌خوابد.
+        */
+
+        targetWindX *= 0.965;
+
+        targetWindY *= 0.965;
+
+        targetPower *= 0.965;
+    }
+
+
+    /*
+       نرمی حرکت
+    */
+
+    windX +=
+        (
+            targetWindX
+            -
+            windX
+        )
+        *
+        0.18;
+
+
+    windY +=
+        (
+            targetWindY
+            -
+            windY
+        )
+        *
+        0.18;
+
+
+    windPower +=
+        (
+            targetPower
+            -
+            windPower
+        )
+        *
+        0.12;
+}
 
 
 /* =========================================================
    RENDER
 ========================================================= */
 
-function render(time) {
+function render(time)
+{
 
-    resize();
+    updatePhysics();
 
-
-    /*
-       پس‌زمینه
-    */
 
     gl.clearColor(
         0.025,
         0.015,
-        0.009,
+        0.008,
         1.0
     );
 
@@ -1160,7 +1585,28 @@ function render(time) {
 
 
     /*
-       تکسچر
+       جهت دست
+    */
+
+    gl.uniform2f(
+        windLocation,
+        windX,
+        windY
+    );
+
+
+    /*
+       شدت باد
+    */
+
+    gl.uniform1f(
+        windPowerLocation,
+        windPower
+    );
+
+
+    /*
+       تصویر
     */
 
     gl.activeTexture(
@@ -1181,7 +1627,7 @@ function render(time) {
 
 
     /*
-       پرچم
+       پارچه
     */
 
     gl.drawElements(
@@ -1197,12 +1643,6 @@ function render(time) {
     );
 }
 
-
-/*
-   مهم:
-   رندر را بدون منتظر ماندن
-   برای عکس شروع می‌کنیم.
-*/
 
 requestAnimationFrame(
     render
