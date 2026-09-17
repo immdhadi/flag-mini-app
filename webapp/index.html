@@ -4,53 +4,48 @@
 <head>
 <meta charset="UTF-8">
 
-<meta
-    name="viewport"
-    content="width=device-width,
-             initial-scale=1.0,
-             viewport-fit=cover,
-             user-scalable=no"
->
+<meta name="viewport"
+      content="width=device-width,
+      initial-scale=1.0,
+      viewport-fit=cover,
+      user-scalable=no">
 
-<title>پرچم</title>
+<title>Realistic Flag</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
+* {
+    box-sizing: border-box;
+}
 
 html,
 body {
     margin: 0;
     padding: 0;
-
     width: 100%;
     height: 100%;
-
     overflow: hidden;
 
     background:
         radial-gradient(
-            ellipse at 50% 38%,
-            #263b56 0%,
-            #142338 45%,
-            #080f1a 78%,
-            #03070d 100%
+            ellipse at 48% 42%,
+            #34291d 0%,
+            #20170f 35%,
+            #0d0906 72%,
+            #050302 100%
         );
+}
 
+body {
     touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
 }
 
 canvas {
     display: block;
-
     width: 100%;
     height: 100%;
-
-    touch-action: none;
 }
-
 </style>
 </head>
 
@@ -60,1465 +55,1079 @@ canvas {
 
 <script>
 
-(() => {
+/* =========================================================
+   TELEGRAM
+========================================================= */
 
-    /* =========================================================
-       TELEGRAM
-    ========================================================= */
+const tg =
+    window.Telegram &&
+    window.Telegram.WebApp;
 
-    const tg =
-        window.Telegram &&
-        window.Telegram.WebApp;
+if (tg) {
+    tg.ready();
+    tg.expand();
 
-    if (tg) {
-
-        tg.ready();
-        tg.expand();
-
-        try {
-            tg.setHeaderColor("#050b14");
-        } catch (e) {}
-
-        try {
-            tg.setBackgroundColor("#050b14");
-        } catch (e) {}
-    }
+    try {
+        tg.setHeaderColor("#090604");
+        tg.setBackgroundColor("#090604");
+    } catch (e) {}
+}
 
 
-    /* =========================================================
-       CANVAS
-    ========================================================= */
+/* =========================================================
+   CANVAS / WEBGL
+========================================================= */
 
-    const canvas =
-        document.getElementById("canvas");
+const canvas =
+    document.getElementById("canvas");
 
-    const ctx =
-        canvas.getContext("2d", {
-            alpha: false
-        });
+const gl =
+    canvas.getContext("webgl", {
+        alpha: false,
+        antialias: true,
+        premultipliedAlpha: false
+    });
 
-
-    let W = 0;
-    let H = 0;
-    let DPR = 1;
-
-
-    function resize() {
-
-        DPR =
-            Math.min(
-                window.devicePixelRatio || 1,
-                2
-            );
-
-        W =
-            window.innerWidth;
-
-        H =
-            window.innerHeight;
-
-        canvas.width =
-            Math.floor(W * DPR);
-
-        canvas.height =
-            Math.floor(H * DPR);
-
-        canvas.style.width =
-            W + "px";
-
-        canvas.style.height =
-            H + "px";
-    }
+if (!gl) {
+    document.body.innerHTML =
+        "<div style='color:white;padding:30px;text-align:center;font-family:sans-serif'>WebGL روی این دستگاه پشتیبانی نمی‌شود.</div>";
+    throw new Error("WebGL unavailable");
+}
 
 
-    window.addEventListener(
-        "resize",
-        resize
+/* =========================================================
+   SHADER SOURCES
+========================================================= */
+
+/*
+   Vertex Shader
+
+   سطح پرچم به تعداد زیادی نقطه تقسیم می‌شود.
+   هر نقطه عمق متفاوت دارد و همین باعث ایجاد
+   چین واقعی‌نما می‌شود.
+*/
+
+const vertexShaderSource = `
+
+precision highp float;
+
+attribute vec2 a_position;
+attribute vec2 a_uv;
+
+uniform float u_aspect;
+uniform float u_flagAspect;
+
+varying vec2 v_uv;
+varying float v_depth;
+
+
+/* ---------------------------------------------------------
+   تابع چین پارچه
+--------------------------------------------------------- */
+
+float clothWave(vec2 uv) {
+
+    float u = uv.x;
+    float v = uv.y;
+
+    /*
+       چین‌های اصلی و بزرگ
+    */
+
+    float large =
+        sin(
+            u * 15.0
+            + v * 1.8
+        ) * 0.70;
+
+
+    /*
+       چین‌های مورب
+    */
+
+    float diagonal =
+        sin(
+            u * 31.0
+            - v * 5.0
+        ) * 0.23;
+
+
+    /*
+       چین‌های ریز
+    */
+
+    float small =
+        sin(
+            u * 62.0
+            + v * 11.0
+        ) * 0.08;
+
+
+    /*
+       نزدیک میله تقریباً ثابت
+    */
+
+    float envelope =
+        smoothstep(
+            0.0,
+            0.28,
+            u
+        );
+
+
+    /*
+       ترکیب
+    */
+
+    return
+        (large + diagonal + small)
+        * envelope;
+}
+
+
+void main() {
+
+    vec2 uv = a_uv;
+
+    float u = uv.x;
+    float v = uv.y;
+
+
+    /*
+       شدت چین
+    */
+
+    float wave =
+        clothWave(uv);
+
+
+    /*
+       کمی افت طبیعی در انتهای آزاد
+    */
+
+    float freeEdge =
+        smoothstep(
+            0.55,
+            1.0,
+            u
+        );
+
+
+    /*
+       عمق پارچه
+    */
+
+    float z =
+        wave
+        * 0.17
+        * (0.75 + freeEdge * 0.55);
+
+
+    /*
+       خم شدن لبه آزاد
+    */
+
+    float edgeCurve =
+        sin(
+            u * 3.14159265
+        ) * 0.025;
+
+
+    /*
+       مختصات صفحه
+    */
+
+    float x =
+        (u - 0.5)
+        * 1.55;
+
+
+    float y =
+        (0.5 - v)
+        * 0.92;
+
+
+    /*
+       لبه آزاد کمی بالا و پایین می‌شود
+    */
+
+    y +=
+        sin(
+            u * 3.14159265
+            + 0.8
+        )
+        * 0.055
+        * freeEdge;
+
+
+    /*
+       اعمال عمق
+    */
+
+    gl_Position =
+        vec4(
+            x,
+            y,
+            z,
+            1.0
+        );
+
+
+    v_uv =
+        uv;
+
+    v_depth =
+        z;
+}
+
+`;
+
+
+/* =========================================================
+   FRAGMENT SHADER
+========================================================= */
+
+const fragmentShaderSource = `
+
+precision highp float;
+
+uniform sampler2D u_texture;
+uniform float u_time;
+
+varying vec2 v_uv;
+varying float v_depth;
+
+
+/* ---------------------------------------------------------
+   Noise
+--------------------------------------------------------- */
+
+float hash(vec2 p) {
+
+    return fract(
+        sin(
+            dot(
+                p,
+                vec2(
+                    127.1,
+                    311.7
+                )
+            )
+        )
+        * 43758.5453123
     );
+}
+
+
+float noise(vec2 p) {
+
+    vec2 i =
+        floor(p);
+
+    vec2 f =
+        fract(p);
+
+    f =
+        f * f *
+        (3.0 - 2.0 * f);
+
+
+    float a =
+        hash(i);
+
+    float b =
+        hash(i + vec2(1.0, 0.0));
+
+    float c =
+        hash(i + vec2(0.0, 1.0));
+
+    float d =
+        hash(i + vec2(1.0, 1.0));
+
+
+    return mix(
+        mix(a, b, f.x),
+        mix(c, d, f.x),
+        f.y
+    );
+}
+
+
+/* ---------------------------------------------------------
+   Fabric height
+--------------------------------------------------------- */
+
+float fabricHeight(vec2 uv) {
+
+    float u = uv.x;
+    float v = uv.y;
+
+
+    float a =
+        sin(
+            u * 15.0
+            + v * 1.8
+        );
+
+
+    float b =
+        sin(
+            u * 31.0
+            - v * 5.0
+        );
+
+
+    float c =
+        sin(
+            u * 63.0
+            + v * 10.0
+        );
+
+
+    float envelope =
+        smoothstep(
+            0.0,
+            0.22,
+            u
+        );
+
+
+    return
+        (a * 0.65
+        + b * 0.24
+        + c * 0.09)
+        * envelope;
+}
+
+
+/* ---------------------------------------------------------
+   Fabric lighting
+--------------------------------------------------------- */
+
+float fabricLight(vec2 uv) {
+
+    float px = 0.0018;
+
+
+    float left =
+        fabricHeight(
+            uv - vec2(px, 0.0)
+        );
+
+    float right =
+        fabricHeight(
+            uv + vec2(px, 0.0)
+        );
+
+    float up =
+        fabricHeight(
+            uv + vec2(0.0, px)
+        );
+
+    float down =
+        fabricHeight(
+            uv - vec2(0.0, px)
+        );
+
+
+    float dx =
+        (right - left) * 2.2;
+
+    float dy =
+        (up - down) * 2.2;
+
+
+    vec3 normal =
+        normalize(
+            vec3(
+                -dx,
+                -dy,
+                1.0
+            )
+        );
+
+
+    /*
+       نور اصلی از بالا و چپ
+    */
+
+    vec3 lightDirection =
+        normalize(
+            vec3(
+                -0.65,
+                -0.75,
+                0.95
+            )
+        );
+
+
+    float diffuse =
+        dot(
+            normal,
+            lightDirection
+        );
+
+
+    diffuse =
+        diffuse * 0.5
+        + 0.5;
+
+
+    return diffuse;
+}
+
+
+/* ---------------------------------------------------------
+   Main
+--------------------------------------------------------- */
+
+void main() {
+
+    vec2 uv =
+        v_uv;
+
+
+    /*
+       تصویر اصلی
+
+       طرح پرچم کاملاً از flag.jpg
+       گرفته می‌شود.
+    */
+
+    vec4 tex =
+        texture2D(
+            u_texture,
+            uv
+        );
+
+
+    /*
+       نور چین‌ها
+    */
+
+    float light =
+        fabricLight(uv);
+
+
+    /*
+       بافت تار و پود بسیار ریز
+    */
+
+    float threadX =
+        sin(
+            uv.x * 900.0
+        );
+
+    float threadY =
+        sin(
+            uv.y * 900.0
+        );
+
+
+    float threads =
+        (
+            threadX +
+            threadY
+        ) * 0.012;
+
+
+    /*
+       بافت طبیعی بسیار ظریف
+    */
+
+    float grain =
+        noise(
+            uv * 500.0
+        )
+        * 0.025;
+
+
+    /*
+       ترکیب نور پارچه
+    */
+
+    float fabric =
+        0.62
+        + light * 0.55;
+
+
+    /*
+       کمی تغییر نور روی عمق چین
+    */
+
+    fabric +=
+        v_depth * 0.75;
+
+
+    vec3 color =
+        tex.rgb
+        * fabric;
+
+
+    /*
+       تار و پود
+    */
+
+    color +=
+        vec3(threads + grain);
+
+
+    /*
+       سایه خیلی نرم در لبه‌ها
+    */
+
+    float edgeX =
+        smoothstep(
+            0.0,
+            0.045,
+            uv.x
+        )
+        *
+        smoothstep(
+            1.0,
+            0.955,
+            uv.x
+        );
+
+
+    float edgeY =
+        smoothstep(
+            0.0,
+            0.035,
+            uv.y
+        )
+        *
+        smoothstep(
+            1.0,
+            0.965,
+            uv.y
+        );
+
+
+    float edge =
+        edgeX *
+        edgeY;
+
+
+    color *=
+        0.78 +
+        edge * 0.22;
+
+
+    gl_FragColor =
+        vec4(
+            color,
+            1.0
+        );
+}
+
+`;
+
+
+/* =========================================================
+   SHADER COMPILER
+========================================================= */
+
+function compileShader(
+    type,
+    source
+) {
+
+    const shader =
+        gl.createShader(type);
+
+    gl.shaderSource(
+        shader,
+        source
+    );
+
+    gl.compileShader(
+        shader
+    );
+
+
+    if (
+        !gl.getShaderParameter(
+            shader,
+            gl.COMPILE_STATUS
+        )
+    ) {
+
+        console.error(
+            gl.getShaderInfoLog(shader)
+        );
+
+        throw new Error(
+            "Shader compilation failed"
+        );
+    }
+
+
+    return shader;
+}
+
+
+const vertexShader =
+    compileShader(
+        gl.VERTEX_SHADER,
+        vertexShaderSource
+    );
+
+
+const fragmentShader =
+    compileShader(
+        gl.FRAGMENT_SHADER,
+        fragmentShaderSource
+    );
+
+
+const program =
+    gl.createProgram();
+
+
+gl.attachShader(
+    program,
+    vertexShader
+);
+
+gl.attachShader(
+    program,
+    fragmentShader
+);
+
+gl.linkProgram(
+    program
+);
+
+
+if (
+    !gl.getProgramParameter(
+        program,
+        gl.LINK_STATUS
+    )
+) {
+
+    console.error(
+        gl.getProgramInfoLog(program)
+    );
+
+    throw new Error(
+        "Program linking failed"
+    );
+}
+
+
+gl.useProgram(
+    program
+);
+
+
+/* =========================================================
+   FLAG MESH
+========================================================= */
+
+const COLS = 180;
+const ROWS = 90;
+
+const vertices = [];
+const indices = [];
+
+
+for (
+    let y = 0;
+    y <= ROWS;
+    y++
+) {
+
+    for (
+        let x = 0;
+        x <= COLS;
+        x++
+    ) {
+
+        const u =
+            x / COLS;
+
+        const v =
+            y / ROWS;
+
+
+        vertices.push(
+            u,
+            v
+        );
+    }
+}
+
+
+for (
+    let y = 0;
+    y < ROWS;
+    y++
+) {
+
+    for (
+        let x = 0;
+        x < COLS;
+        x++
+    ) {
+
+        const i =
+            y * (COLS + 1)
+            + x;
+
+
+        indices.push(
+            i,
+            i + 1,
+            i + COLS + 1
+        );
+
+
+        indices.push(
+            i + 1,
+            i + COLS + 2,
+            i + COLS + 1
+        );
+    }
+}
+
+
+/* =========================================================
+   POSITION BUFFER
+========================================================= */
+
+const positionBuffer =
+    gl.createBuffer();
+
+gl.bindBuffer(
+    gl.ARRAY_BUFFER,
+    positionBuffer
+);
+
+gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array(vertices),
+    gl.STATIC_DRAW
+);
+
+
+const indexBuffer =
+    gl.createBuffer();
+
+gl.bindBuffer(
+    gl.ELEMENT_ARRAY_BUFFER,
+    indexBuffer
+);
+
+gl.bufferData(
+    gl.ELEMENT_ARRAY_BUFFER,
+    new Uint32Array(indices),
+    gl.STATIC_DRAW
+);
+
+
+/* =========================================================
+   ATTRIBUTES
+========================================================= */
+
+const positionLocation =
+    gl.getAttribLocation(
+        program,
+        "a_position"
+    );
+
+const uvLocation =
+    gl.getAttribLocation(
+        program,
+        "a_uv"
+    );
+
+
+gl.bindBuffer(
+    gl.ARRAY_BUFFER,
+    positionBuffer
+);
+
+gl.enableVertexAttribArray(
+    positionLocation
+);
+
+gl.vertexAttribPointer(
+    positionLocation,
+    2,
+    gl.FLOAT,
+    false,
+    0,
+    0
+);
+
+
+/*
+   UV همان position است
+*/
+
+gl.enableVertexAttribArray(
+    uvLocation
+);
+
+gl.vertexAttribPointer(
+    uvLocation,
+    2,
+    gl.FLOAT,
+    false,
+    0,
+    0
+);
+
+
+/* =========================================================
+   UNIFORMS
+========================================================= */
+
+const timeLocation =
+    gl.getUniformLocation(
+        program,
+        "u_time"
+    );
+
+const aspectLocation =
+    gl.getUniformLocation(
+        program,
+        "u_aspect"
+    );
+
+const flagAspectLocation =
+    gl.getUniformLocation(
+        program,
+        "u_flagAspect"
+    );
+
+const textureLocation =
+    gl.getUniformLocation(
+        program,
+        "u_texture"
+    );
+
+
+/* =========================================================
+   FLAG TEXTURE
+========================================================= */
+
+const texture =
+    gl.createTexture();
+
+const image =
+    new Image();
+
+image.onload = () => {
+
+    gl.bindTexture(
+        gl.TEXTURE_2D,
+        texture
+    );
+
+
+    gl.pixelStorei(
+        gl.UNPACK_FLIP_Y_WEBGL,
+        true
+    );
+
+
+    gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        image
+    );
+
+
+    gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_MIN_FILTER,
+        gl.LINEAR_MIPMAP_LINEAR
+    );
+
+
+    gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_MAG_FILTER,
+        gl.LINEAR
+    );
+
+
+    gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_WRAP_S,
+        gl.CLAMP_TO_EDGE
+    );
+
+
+    gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_WRAP_T,
+        gl.CLAMP_TO_EDGE
+    );
+
+
+    gl.generateMipmap(
+        gl.TEXTURE_2D
+    );
+
+
+    requestAnimationFrame(
+        render
+    );
+};
+
+
+/*
+   مهم:
+   همین فایل باید داخل webapp باشد.
+*/
+
+image.src =
+    "flag.jpg";
+
+
+/* =========================================================
+   RESIZE
+========================================================= */
+
+function resize() {
+
+    const dpr =
+        Math.min(
+            window.devicePixelRatio || 1,
+            2
+        );
+
+
+    canvas.width =
+        Math.floor(
+            window.innerWidth * dpr
+        );
+
+    canvas.height =
+        Math.floor(
+            window.innerHeight * dpr
+        );
+
+
+    canvas.style.width =
+        window.innerWidth + "px";
+
+    canvas.style.height =
+        window.innerHeight + "px";
+
+
+    gl.viewport(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+}
+
+
+window.addEventListener(
+    "resize",
+    resize
+);
+
+resize();
+
+
+/* =========================================================
+   BACKGROUND
+========================================================= */
+
+function drawBackground() {
+
+    /*
+       WebGL کل صفحه را می‌گیرد.
+       پس قبل از پرچم با یک Quad ساده
+       پس‌زمینه ساخته می‌شود.
+    */
+
+    gl.clearColor(
+        0.025,
+        0.015,
+        0.009,
+        1
+    );
+
+    gl.clear(
+        gl.COLOR_BUFFER_BIT
+    );
+}
+
+
+/* =========================================================
+   RENDER
+========================================================= */
+
+function render(time) {
 
     resize();
 
-
-    /* =========================================================
-       FLAG IMAGE
-    ========================================================= */
-
-    const flagImage =
-        new Image();
-
-    let imageReady = false;
-
-    flagImage.onload = () => {
-
-        imageReady = true;
-
-        draw();
-    };
-
-    flagImage.src = "flag.jpg";
+    drawBackground();
 
 
-    /* =========================================================
-       FLAG SETTINGS
-    ========================================================= */
+    gl.useProgram(
+        program
+    );
 
-    const COLS = 75;
-    const ROWS = 34;
+
+    gl.bindTexture(
+        gl.TEXTURE_2D,
+        texture
+    );
+
+
+    gl.uniform1f(
+        timeLocation,
+        time * 0.001
+    );
+
+
+    gl.uniform1f(
+        aspectLocation,
+        canvas.width /
+        canvas.height
+    );
+
+
+    gl.uniform1f(
+        flagAspectLocation,
+        1.6
+    );
+
+
+    gl.uniform1i(
+        textureLocation,
+        0
+    );
 
 
     /*
-        شدت چین‌های پارچه
-
-        اینها عمداً ثابت هستند.
-        هنوز هیچ حرکتی نداریم.
+       پرچم
     */
 
-    const FOLD_X = 0.055;
-    const FOLD_Y = 0.018;
-
-    const DEPTH = 34;
-
-
-    /* =========================================================
-       FLAG GEOMETRY
-    ========================================================= */
-
-    let flag = {
-
-        x: 0,
-        y: 0,
-
-        width: 0,
-        height: 0,
-
-        poleX: 0,
-        poleTop: 0,
-        poleBottom: 0
-    };
-
-
-    function calculateFlag() {
-
-        /*
-            اندازه پرچم روی صفحه
-        */
-
-        const maxWidth =
-            Math.min(
-                W * 0.82,
-                650
-            );
-
-
-        let ratio = 1.608;
-
-
-        if (
-            imageReady &&
-            flagImage.width > 0
-        ) {
-
-            ratio =
-                flagImage.height /
-                flagImage.width;
-        }
-
-
-        flag.width =
-            maxWidth;
-
-        flag.height =
-            flag.width * ratio;
-
-
-        /*
-            اگر صفحه خیلی کوتاه باشد
-        */
-
-        const maxHeight =
-            H * 0.66;
-
-
-        if (
-            flag.height >
-            maxHeight
-        ) {
-
-            flag.height =
-                maxHeight;
-
-            flag.width =
-                flag.height /
-                ratio;
-        }
-
-
-        /*
-            میله
-        */
-
-        flag.poleX =
-            W / 2 -
-            flag.width / 2 -
-            22;
-
-
-        flag.x =
-            flag.poleX + 8;
-
-
-        flag.y =
-            H / 2 -
-            flag.height / 2;
-
-
-        flag.poleTop =
-            flag.y - 65;
-
-
-        flag.poleBottom =
-            flag.y +
-            flag.height +
-            65;
-    }
-
-
-    /* =========================================================
-       CLOTH HEIGHT FIELD
-       ========================================================= */
-
-    /*
-        این تابع شکل واقعی‌نما به پارچه می‌دهد.
-
-        نکته مهم:
-
-        نزدیک میله:
-            تقریباً صاف
-
-        وسط:
-            چین‌های عمیق
-
-        لبه آزاد:
-            آزادتر و خمیده‌تر
-    */
-
-
-    function clothHeight(u, v) {
-
-        /*
-            envelope
-
-            اتصال به میله ثابت
-        */
-
-        const envelope =
-            Math.pow(
-                u,
-                1.35
-            );
-
-
-        /*
-            چین اصلی
-        */
-
-        const fold1 =
-            Math.sin(
-                u * Math.PI * 5.5 +
-                v * Math.PI * 0.45
-            );
-
-
-        /*
-            چین دوم
-        */
-
-        const fold2 =
-            Math.sin(
-                u * Math.PI * 11.5 -
-                v * Math.PI * 1.7
-            );
-
-
-        /*
-            چین سوم ریز
-        */
-
-        const fold3 =
-            Math.sin(
-                u * Math.PI * 22 +
-                v * Math.PI * 3.5
-            );
-
-
-        /*
-            چین عمودی
-        */
-
-        const vertical =
-            Math.sin(
-                v * Math.PI * 3 +
-                u * Math.PI * 2
-            );
-
-
-        /*
-            ترکیب
-        */
-
-        let h =
-            fold1 * 0.58 +
-            fold2 * 0.25 +
-            fold3 * 0.10 +
-            vertical * 0.12;
-
-
-        /*
-            کاهش چین نزدیک میله
-        */
-
-        h *= envelope;
-
-
-        /*
-            کمی خمیدگی کلی
-        */
-
-        h +=
-            Math.sin(
-                u * Math.PI
-            ) *
-            0.18;
-
-
-        return h;
-    }
-
-
-    /* =========================================================
-       CLOTH POINT
-       ========================================================= */
-
-    function getPoint(
-        u,
-        v
-    ) {
-
-        const h =
-            clothHeight(
-                u,
-                v
-            );
-
-
-        /*
-            عمق پارچه
-
-            این قسمت باعث می‌شود
-            پارچه کاملاً تخت دیده نشود.
-        */
-
-        const depth =
-            h * DEPTH;
-
-
-        /*
-            کمی تغییر افقی
-            برای لبه‌های چین‌خورده
-        */
-
-        const xWave =
-            Math.sin(
-                v * Math.PI * 2 +
-                u * Math.PI * 7
-            ) *
-            FOLD_X *
-            flag.width *
-            u;
-
-
-        /*
-            کمی تغییر عمودی
-        */
-
-        const yWave =
-            Math.sin(
-                u * Math.PI * 8 +
-                v * Math.PI * 2
-            ) *
-            FOLD_Y *
-            flag.height *
-            u;
-
-
-        const x =
-            flag.x +
-            u * flag.width +
-            xWave;
-
-
-        const y =
-            flag.y +
-            v * flag.height +
-            yWave;
-
-
-        return {
-            x,
-            y,
-            z: depth
-        };
-    }
-
-
-    /* =========================================================
-       BACKGROUND
-    ========================================================= */
-
-    function drawBackground() {
-
-        const gradient =
-            ctx.createRadialGradient(
-                W * 0.52,
-                H * 0.35,
-                10,
-                W * 0.5,
-                H * 0.5,
-                Math.max(W, H)
-            );
-
-
-        gradient.addColorStop(
-            0,
-            "#304968"
-        );
-
-        gradient.addColorStop(
-            0.38,
-            "#1b2d45"
-        );
-
-        gradient.addColorStop(
-            0.72,
-            "#0c1727"
-        );
-
-        gradient.addColorStop(
-            1,
-            "#03070d"
-        );
-
-
-        ctx.fillStyle =
-            gradient;
-
-        ctx.fillRect(
-            0,
-            0,
-            W,
-            H
-        );
-
-
-        /*
-            هاله بسیار ملایم پشت پرچم
-        */
-
-        const glow =
-            ctx.createRadialGradient(
-                W * 0.5,
-                H * 0.45,
-                10,
-                W * 0.5,
-                H * 0.45,
-                W * 0.55
-            );
-
-
-        glow.addColorStop(
-            0,
-            "rgba(255,255,255,0.045)"
-        );
-
-        glow.addColorStop(
-            1,
-            "rgba(255,255,255,0)"
-        );
-
-
-        ctx.fillStyle =
-            glow;
-
-        ctx.fillRect(
-            0,
-            0,
-            W,
-            H
-        );
-    }
-
-
-    /* =========================================================
-       POLE
-    ========================================================= */
-
-    function drawPole() {
-
-        const x =
-            flag.poleX;
-
-
-        /*
-            سایه پشت میله
-        */
-
-        ctx.save();
-
-        ctx.fillStyle =
-            "rgba(0,0,0,0.42)";
-
-        ctx.fillRect(
-            x + 6,
-            flag.poleTop + 5,
-            12,
-            flag.poleBottom -
-            flag.poleTop
-        );
-
-
-        /*
-            بدنه فلزی
-        */
-
-        const metal =
-            ctx.createLinearGradient(
-                x - 7,
-                0,
-                x + 9,
-                0
-            );
-
-
-        metal.addColorStop(
-            0,
-            "#272b30"
-        );
-
-        metal.addColorStop(
-            0.20,
-            "#656b72"
-        );
-
-        metal.addColorStop(
-            0.38,
-            "#d9dde0"
-        );
-
-        metal.addColorStop(
-            0.52,
-            "#8b9197"
-        );
-
-        metal.addColorStop(
-            0.75,
-            "#454a50"
-        );
-
-        metal.addColorStop(
-            1,
-            "#1e2227"
-        );
-
-
-        ctx.fillStyle =
-            metal;
-
-
-        ctx.fillRect(
-            x - 5,
-            flag.poleTop,
-            10,
-            flag.poleBottom -
-            flag.poleTop
-        );
-
-
-        /*
-            خط انعکاس
-        */
-
-        ctx.fillStyle =
-            "rgba(255,255,255,0.28)";
-
-        ctx.fillRect(
-            x - 2,
-            flag.poleTop,
-            2,
-            flag.poleBottom -
-            flag.poleTop
-        );
-
-
-        /*
-            گوی بالای میله
-        */
-
-        const ball =
-            ctx.createRadialGradient(
-                x - 4,
-                flag.poleTop - 10,
-                1,
-                x,
-                flag.poleTop - 6,
-                13
-            );
-
-
-        ball.addColorStop(
-            0,
-            "#fff4bb"
-        );
-
-        ball.addColorStop(
-            0.22,
-            "#e5bd55"
-        );
-
-        ball.addColorStop(
-            0.58,
-            "#a9781d"
-        );
-
-        ball.addColorStop(
-            1,
-            "#4c3208"
-        );
-
-
-        ctx.fillStyle =
-            ball;
-
-        ctx.beginPath();
-
-        ctx.arc(
-            x,
-            flag.poleTop - 7,
-            12,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fill();
-
-
-        ctx.restore();
-    }
-
-
-    /* =========================================================
-       FLAG SHADOW
-    ========================================================= */
-
-    function drawFlagShadow() {
-
-        ctx.save();
-
-
-        const shadow =
-            ctx.createRadialGradient(
-                flag.x +
-                flag.width * 0.55,
-
-                flag.y +
-                flag.height * 0.72,
-
-                5,
-
-                flag.x +
-                flag.width * 0.55,
-
-                flag.y +
-                flag.height * 0.72,
-
-                flag.width * 0.58
-            );
-
-
-        shadow.addColorStop(
-            0,
-            "rgba(0,0,0,0.40)"
-        );
-
-        shadow.addColorStop(
-            0.5,
-            "rgba(0,0,0,0.14)"
-        );
-
-        shadow.addColorStop(
-            1,
-            "rgba(0,0,0,0)"
-        );
-
-
-        ctx.fillStyle =
-            shadow;
-
-
-        ctx.fillRect(
-            flag.x - 40,
-            flag.y - 20,
-            flag.width + 80,
-            flag.height + 100
-        );
-
-
-        ctx.restore();
-    }
-
-
-    /* =========================================================
-       TRIANGLE
-    ========================================================= */
-
-    function drawTriangle(
-        p1,
-        p2,
-        p3,
-
-        sx1,
-        sy1,
-        sx2,
-        sy2,
-        sx3,
-        sy3
-    ) {
-
-        /*
-            تبدیل affine
-        */
-
-        const det =
-            sx1 * (sy2 - sy3) +
-            sx2 * (sy3 - sy1) +
-            sx3 * (sy1 - sy2);
-
-
-        if (
-            Math.abs(det) <
-            0.00001
-        ) {
-            return;
-        }
-
-
-        const a =
-            (
-                p1.x * (sy2 - sy3) +
-                p2.x * (sy3 - sy1) +
-                p3.x * (sy1 - sy2)
-            ) / det;
-
-
-        const b =
-            (
-                p1.y * (sy2 - sy3) +
-                p2.y * (sy3 - sy1) +
-                p3.y * (sy1 - sy2)
-            ) / det;
-
-
-        const c =
-            (
-                p1.x * (sx3 - sx2) +
-                p2.x * (sx1 - sx3) +
-                p3.x * (sx2 - sx1)
-            ) / det;
-
-
-        const d =
-            (
-                p1.y * (sx3 - sx2) +
-                p2.y * (sx1 - sx3) +
-                p3.y * (sx2 - sx1)
-            ) / det;
-
-
-        const e =
-            p1.x -
-            a * sx1 -
-            c * sy1;
-
-
-        const f =
-            p1.y -
-            b * sx1 -
-            d * sy1;
-
-
-        ctx.save();
-
-
-        /*
-            برش مثلث
-        */
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            p1.x,
-            p1.y
-        );
-
-        ctx.lineTo(
-            p2.x,
-            p2.y
-        );
-
-        ctx.lineTo(
-            p3.x,
-            p3.y
-        );
-
-        ctx.closePath();
-
-        ctx.clip();
-
-
-        /*
-            تصویر
-        */
-
-        ctx.setTransform(
-            DPR * a,
-            DPR * b,
-            DPR * c,
-            DPR * d,
-            DPR * e,
-            DPR * f
-        );
-
-
-        ctx.drawImage(
-            flagImage,
-            0,
-            0
-        );
-
-
-        ctx.restore();
-    }
-
-
-    /* =========================================================
-       FLAG MESH
-    ========================================================= */
-
-    function drawFlag() {
-
-        if (!imageReady) {
-            return;
-        }
-
-
-        const points = [];
-
-
-        /*
-            ساخت شبکه پارچه
-        */
-
-        for (
-            let row = 0;
-            row <= ROWS;
-            row++
-        ) {
-
-            points[row] = [];
-
-
-            const v =
-                row / ROWS;
-
-
-            for (
-                let col = 0;
-                col <= COLS;
-                col++
-            ) {
-
-                const u =
-                    col / COLS;
-
-
-                points[row][col] =
-                    getPoint(
-                        u,
-                        v
-                    );
-            }
-        }
-
-
-        /*
-            رسم هر خانه به دو مثلث
-        */
-
-        for (
-            let row = 0;
-            row < ROWS;
-            row++
-        ) {
-
-            for (
-                let col = 0;
-                col < COLS;
-                col++
-            ) {
-
-                const u1 =
-                    col / COLS;
-
-                const u2 =
-                    (col + 1) / COLS;
-
-                const v1 =
-                    row / ROWS;
-
-                const v2 =
-                    (row + 1) / ROWS;
-
-
-                const p00 =
-                    points[row][col];
-
-                const p10 =
-                    points[row][col + 1];
-
-                const p01 =
-                    points[row + 1][col];
-
-                const p11 =
-                    points[row + 1][col + 1];
-
-
-                const sx1 =
-                    u1 *
-                    flagImage.width;
-
-                const sx2 =
-                    u2 *
-                    flagImage.width;
-
-                const sy1 =
-                    v1 *
-                    flagImage.height;
-
-                const sy2 =
-                    v2 *
-                    flagImage.height;
-
-
-                /*
-                    مثلث اول
-                */
-
-                drawTriangle(
-                    p00,
-                    p10,
-                    p01,
-
-                    sx1,
-                    sy1,
-
-                    sx2,
-                    sy1,
-
-                    sx1,
-                    sy2
-                );
-
-
-                /*
-                    مثلث دوم
-                */
-
-                drawTriangle(
-                    p10,
-                    p11,
-                    p01,
-
-                    sx2,
-                    sy1,
-
-                    sx2,
-                    sy2,
-
-                    sx1,
-                    sy2
-                );
-            }
-        }
-
-
-        /*
-            =====================================================
-            نورپردازی چین‌های پارچه
-            =====================================================
-        */
-
-
-        ctx.save();
-
-
-        ctx.globalCompositeOperation =
-            "multiply";
-
-
-        /*
-            چند نوار سایه بسیار نرم
-            روی چین‌ها
-        */
-
-        for (
-            let i = 0;
-            i < 15;
-            i++
-        ) {
-
-            const u =
-                (i + 0.5) / 15;
-
-
-            const x =
-                flag.x +
-                u * flag.width;
-
-
-            const fold =
-                Math.sin(
-                    u * Math.PI * 5.5
-                );
-
-
-            const alpha =
-                Math.abs(fold) *
-                0.085;
-
-
-            const width =
-                flag.width / 15 *
-                0.75;
-
-
-            const gradient =
-                ctx.createLinearGradient(
-                    x - width,
-                    0,
-                    x + width,
-                    0
-                );
-
-
-            gradient.addColorStop(
-                0,
-                `rgba(0,0,0,0)`
-            );
-
-            gradient.addColorStop(
-                0.5,
-                `rgba(0,0,0,${alpha})`
-            );
-
-            gradient.addColorStop(
-                1,
-                `rgba(0,0,0,0)`
-            );
-
-
-            ctx.fillStyle =
-                gradient;
-
-
-            ctx.fillRect(
-                x - width,
-                flag.y,
-                width * 2,
-                flag.height
-            );
-        }
-
-
-        ctx.restore();
-
-
-        /*
-            نور سرد خیلی ظریف
-        */
-
-        ctx.save();
-
-        ctx.globalCompositeOperation =
-            "screen";
-
-        ctx.globalAlpha =
-            0.055;
-
-
-        const light =
-            ctx.createLinearGradient(
-                flag.x,
-                flag.y,
-                flag.x +
-                flag.width,
-                flag.y +
-                flag.height
-            );
-
-
-        light.addColorStop(
-            0,
-            "#ffffff"
-        );
-
-        light.addColorStop(
-            0.45,
-            "rgba(255,255,255,0)"
-        );
-
-        light.addColorStop(
-            1,
-            "#ffffff"
-        );
-
-
-        ctx.fillStyle =
-            light;
-
-
-        ctx.fillRect(
-            flag.x,
-            flag.y,
-            flag.width,
-            flag.height
-        );
-
-
-        ctx.restore();
-
-
-        /*
-            بافت ریز پارچه
-        */
-
-        drawFabricTexture();
-    }
-
-
-    /* =========================================================
-       FABRIC TEXTURE
-    ========================================================= */
-
-    function drawFabricTexture() {
-
-        /*
-            یک الگوی بسیار ظریف شبیه تار و پود.
-        */
-
-        ctx.save();
-
-
-        ctx.globalAlpha =
-            0.075;
-
-
-        ctx.globalCompositeOperation =
-            "overlay";
-
-
-        const spacing = 3;
-
-
-        /*
-            تار
-        */
-
-        ctx.strokeStyle =
-            "#ffffff";
-
-        ctx.lineWidth =
-            0.45;
-
-
-        for (
-            let x = flag.x;
-            x < flag.x + flag.width;
-            x += spacing
-        ) {
-
-            ctx.beginPath();
-
-            ctx.moveTo(
-                x,
-                flag.y
-            );
-
-            ctx.lineTo(
-                x +
-                Math.sin(x * 0.08) * 1.5,
-                flag.y +
-                flag.height
-            );
-
-            ctx.stroke();
-        }
-
-
-        /*
-            پود
-        */
-
-        ctx.strokeStyle =
-            "#000000";
-
-        ctx.lineWidth =
-            0.45;
-
-
-        for (
-            let y = flag.y;
-            y < flag.y + flag.height;
-            y += spacing
-        ) {
-
-            ctx.beginPath();
-
-            ctx.moveTo(
-                flag.x,
-                y
-            );
-
-            ctx.lineTo(
-                flag.x +
-                flag.width,
-                y +
-                Math.sin(y * 0.09) * 1.2
-            );
-
-            ctx.stroke();
-        }
-
-
-        ctx.restore();
-    }
-
-
-    /* =========================================================
-       FLAG EDGE
-    ========================================================= */
-
-    function drawEdge() {
-
-        ctx.save();
-
-
-        /*
-            لبه آزاد پرچم
-        */
-
-        ctx.beginPath();
-
-
-        for (
-            let i = 0;
-            i <= 50;
-            i++
-        ) {
-
-            const u =
-                i / 50;
-
-
-            const p =
-                getPoint(
-                    u,
-                    0,
-                );
-
-
-            /*
-                لبه پایین
-            */
-
-            const bottom =
-                getPoint(
-                    u,
-                    1
-                );
-
-
-            if (i === 0) {
-
-                ctx.moveTo(
-                    bottom.x,
-                    bottom.y
-                );
-
-            } else {
-
-                ctx.lineTo(
-                    bottom.x,
-                    bottom.y
-                );
-            }
-        }
-
-
-        ctx.strokeStyle =
-            "rgba(0,0,0,0.28)";
-
-        ctx.lineWidth =
-            1.2;
-
-
-        ctx.stroke();
-
-
-        ctx.restore();
-    }
-
-
-    /* =========================================================
-       ATTACHMENT
-    ========================================================= */
-
-    function drawAttachment() {
-
-        const x =
-            flag.poleX + 6;
-
-
-        /*
-            بند اتصال بالایی
-        */
-
-        ctx.save();
-
-        ctx.fillStyle =
-            "#222";
-
-        ctx.fillRect(
-            x - 2,
-            flag.y - 4,
-            8,
-            6
-        );
-
-
-        /*
-            بند اتصال پایینی
-        */
-
-        ctx.fillRect(
-            x - 2,
-            flag.y +
-            flag.height -
-            2,
-            8,
-            6
-        );
-
-
-        /*
-            حلقه‌های فلزی
-        */
-
-        ctx.strokeStyle =
-            "#bfc3c6";
-
-        ctx.lineWidth =
-            2;
-
-
-        ctx.beginPath();
-
-        ctx.arc(
-            x + 2,
-            flag.y,
-            4,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.stroke();
-
-
-        ctx.beginPath();
-
-        ctx.arc(
-            x + 2,
-            flag.y +
-            flag.height,
-            4,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.stroke();
-
-
-        ctx.restore();
-    }
-
-
-    /* =========================================================
-       FINAL RENDER
-       ========================================================= */
-
-    function draw() {
-
-        calculateFlag();
-
-
-        ctx.setTransform(
-            DPR,
-            0,
-            0,
-            DPR,
-            0,
-            0
-        );
-
-
-        ctx.clearRect(
-            0,
-            0,
-            W,
-            H
-        );
-
-
-        drawBackground();
-
-        drawFlagShadow();
-
-        drawPole();
-
-        drawFlag();
-
-        drawEdge();
-
-        drawAttachment();
-    }
-
-
-    /* =========================================================
-       START
-       ========================================================= */
-
-    draw();
-
-
-})();
+    gl.drawElements(
+        gl.TRIANGLES,
+        indices.length,
+        gl.UNSIGNED_INT,
+        0
+    );
+
+
+    requestAnimationFrame(
+        render
+    );
+}
 
 </script>
 
