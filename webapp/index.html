@@ -1,114 +1,87 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
+
 <head>
 <meta charset="UTF-8">
 
 <meta
-  name="viewport"
-  content="width=device-width,
-           initial-scale=1.0,
-           viewport-fit=cover,
-           user-scalable=no"
+    name="viewport"
+    content="width=device-width,
+             initial-scale=1.0,
+             viewport-fit=cover,
+             user-scalable=no"
 >
 
-<title>پرچم در اهتزاز</title>
+<title>پرچم</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
-    html,
-    body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
 
-        background:
-            radial-gradient(
-                circle at 50% 30%,
-                #24364f 0%,
-                #101b2b 60%,
-                #050a12 100%
-            );
+html,
+body {
+    margin: 0;
+    padding: 0;
 
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-touch-callout: none;
-    }
+    width: 100%;
+    height: 100%;
 
-    canvas {
-        display: block;
-        width: 100%;
-        height: 100%;
-        touch-action: none;
-    }
+    overflow: hidden;
 
-    #hint {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: calc(18px + env(safe-area-inset-bottom));
+    background:
+        radial-gradient(
+            ellipse at 50% 38%,
+            #263b56 0%,
+            #142338 45%,
+            #080f1a 78%,
+            #03070d 100%
+        );
 
-        text-align: center;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
 
-        font-family:
-            system-ui,
-            -apple-system,
-            "Segoe UI",
-            Tahoma,
-            sans-serif;
+canvas {
+    display: block;
 
-        font-size: 13px;
-        color: rgba(255,255,255,0.58);
+    width: 100%;
+    height: 100%;
 
-        pointer-events: none;
+    touch-action: none;
+}
 
-        transition:
-            opacity 0.4s ease,
-            transform 0.4s ease;
-    }
-
-    #hint.active {
-        opacity: 0;
-        transform: translateY(8px);
-    }
 </style>
 </head>
 
 <body>
 
-<canvas id="flagCanvas"></canvas>
-
-<div id="hint">
-    انگشتت را روی پرچم بکش و باد را کنترل کن 🍃
-</div>
+<canvas id="canvas"></canvas>
 
 <script>
+
 (() => {
 
     /* =========================================================
-       TELEGRAM MINI APP
+       TELEGRAM
     ========================================================= */
 
-    const tg = window.Telegram && window.Telegram.WebApp;
+    const tg =
+        window.Telegram &&
+        window.Telegram.WebApp;
 
     if (tg) {
+
         tg.ready();
         tg.expand();
 
-        if (tg.setHeaderColor) {
-            try {
-                tg.setHeaderColor("#07101d");
-            } catch (e) {}
-        }
+        try {
+            tg.setHeaderColor("#050b14");
+        } catch (e) {}
 
-        if (tg.setBackgroundColor) {
-            try {
-                tg.setBackgroundColor("#07101d");
-            } catch (e) {}
-        }
+        try {
+            tg.setBackgroundColor("#050b14");
+        } catch (e) {}
     }
 
 
@@ -116,43 +89,51 @@
        CANVAS
     ========================================================= */
 
-    const canvas = document.getElementById("flagCanvas");
-    const ctx = canvas.getContext("2d", {
-        alpha: true
-    });
+    const canvas =
+        document.getElementById("canvas");
 
-    const hint = document.getElementById("hint");
+    const ctx =
+        canvas.getContext("2d", {
+            alpha: false
+        });
 
-    let DPR = Math.min(
-        window.devicePixelRatio || 1,
-        2
-    );
 
     let W = 0;
     let H = 0;
+    let DPR = 1;
 
 
     function resize() {
 
-        DPR = Math.min(
-            window.devicePixelRatio || 1,
-            2
-        );
+        DPR =
+            Math.min(
+                window.devicePixelRatio || 1,
+                2
+            );
 
-        W = window.innerWidth;
-        H = window.innerHeight;
+        W =
+            window.innerWidth;
 
-        canvas.width = Math.floor(W * DPR);
-        canvas.height = Math.floor(H * DPR);
+        H =
+            window.innerHeight;
 
-        canvas.style.width = W + "px";
-        canvas.style.height = H + "px";
+        canvas.width =
+            Math.floor(W * DPR);
+
+        canvas.height =
+            Math.floor(H * DPR);
+
+        canvas.style.width =
+            W + "px";
+
+        canvas.style.height =
+            H + "px";
     }
+
 
     window.addEventListener(
         "resize",
-        resize,
-        { passive: true }
+        resize
     );
 
     resize();
@@ -162,101 +143,40 @@
        FLAG IMAGE
     ========================================================= */
 
-    const flagImg = new Image();
+    const flagImage =
+        new Image();
 
-    let imgReady = false;
+    let imageReady = false;
 
-    flagImg.onload = () => {
-        imgReady = true;
+    flagImage.onload = () => {
+
+        imageReady = true;
+
+        draw();
     };
 
-    flagImg.onerror = () => {
-        imgReady = false;
-    };
-
-    /*
-      چون index.html داخل /app/ است،
-      این مسیر تبدیل می‌شود به:
-
-      /app/flag.jpg
-    */
-    flagImg.src = "flag.jpg";
+    flagImage.src = "flag.jpg";
 
 
     /* =========================================================
-       PHYSICS
+       FLAG SETTINGS
     ========================================================= */
 
-    /*
-      تعداد نقاط پارچه
-
-      بیشتر = نرم‌تر
-      کمتر = سریع‌تر
-    */
-
-    const COLS = 42;
-    const ROWS = 22;
+    const COLS = 75;
+    const ROWS = 34;
 
 
     /*
-      وضعیت باد
+        شدت چین‌های پارچه
 
-      windX:
-        باد افقی
-
-      windY:
-        باد عمودی
-
-      targetWind:
-        جهتی که انگشت تعیین کرده
-
-      wind:
-        مقدار واقعی بعد از نرم شدن
+        اینها عمداً ثابت هستند.
+        هنوز هیچ حرکتی نداریم.
     */
 
-    let windX = 0;
-    let windY = 0;
+    const FOLD_X = 0.055;
+    const FOLD_Y = 0.018;
 
-    let targetWindX = 0;
-    let targetWindY = 0;
-
-    let windVelocityX = 0;
-    let windVelocityY = 0;
-
-
-    /*
-      شدت کلی حرکت پارچه
-    */
-
-    let gust = 0;
-
-    let time = 0;
-
-
-    /* =========================================================
-       TOUCH / POINTER
-    ========================================================= */
-
-    let pointerDown = false;
-
-    let pointerX = 0;
-    let pointerY = 0;
-
-    let previousPointerX = 0;
-    let previousPointerY = 0;
-
-    let pointerSpeedX = 0;
-    let pointerSpeedY = 0;
-
-    let lastPointerTime = 0;
-
-
-    /*
-      این متغیر مشخص می‌کند
-      لمس واقعاً روی محدوده پرچم بوده یا نه.
-    */
-
-    let touchingFlag = false;
+    const DEPTH = 34;
 
 
     /* =========================================================
@@ -264,10 +184,13 @@
     ========================================================= */
 
     let flag = {
+
         x: 0,
         y: 0,
+
         width: 0,
         height: 0,
+
         poleX: 0,
         poleTop: 0,
         poleBottom: 0
@@ -277,46 +200,76 @@
     function calculateFlag() {
 
         /*
-          پرچم در مرکز صفحه قرار می‌گیرد.
+            اندازه پرچم روی صفحه
         */
 
-        const flagWidth = Math.min(
-            W * 0.78,
-            520
-        );
+        const maxWidth =
+            Math.min(
+                W * 0.82,
+                650
+            );
 
-        let ratio = 0.62;
+
+        let ratio = 1.608;
+
 
         if (
-            imgReady &&
-            flagImg.width > 0
+            imageReady &&
+            flagImage.width > 0
         ) {
+
             ratio =
-                flagImg.height /
-                flagImg.width;
+                flagImage.height /
+                flagImage.width;
         }
 
-        const flagHeight =
-            flagWidth * ratio;
+
+        flag.width =
+            maxWidth;
+
+        flag.height =
+            flag.width * ratio;
 
 
-        flag.width = flagWidth;
-        flag.height = flagHeight;
+        /*
+            اگر صفحه خیلی کوتاه باشد
+        */
 
+        const maxHeight =
+            H * 0.66;
+
+
+        if (
+            flag.height >
+            maxHeight
+        ) {
+
+            flag.height =
+                maxHeight;
+
+            flag.width =
+                flag.height /
+                ratio;
+        }
+
+
+        /*
+            میله
+        */
 
         flag.poleX =
             W / 2 -
-            flagWidth / 2 -
-            18;
+            flag.width / 2 -
+            22;
 
 
         flag.x =
-            flag.poleX + 7;
+            flag.poleX + 8;
 
 
         flag.y =
             H / 2 -
-            flagHeight / 2;
+            flag.height / 2;
 
 
         flag.poleTop =
@@ -325,526 +278,524 @@
 
         flag.poleBottom =
             flag.y +
-            flagHeight +
-            50;
+            flag.height +
+            65;
     }
 
 
     /* =========================================================
-       POINTER HELPERS
-    ========================================================= */
-
-    function isInsideFlag(x, y) {
-
-        /*
-          کمی محدوده را بزرگ‌تر می‌کنیم
-          تا لمس کردن راحت‌تر باشد.
-        */
-
-        const padding = 25;
-
-        return (
-            x >= flag.x - padding &&
-            x <= flag.x + flag.width + padding &&
-            y >= flag.y - padding &&
-            y <= flag.y + flag.height + padding
-        );
-    }
-
-
-    function pointerStart(e) {
-
-        const p = e;
-
-        pointerX = p.clientX;
-        pointerY = p.clientY;
-
-        previousPointerX = pointerX;
-        previousPointerY = pointerY;
-
-        lastPointerTime =
-            performance.now();
-
-        pointerSpeedX = 0;
-        pointerSpeedY = 0;
-
-        pointerDown = true;
-
-        touchingFlag =
-            isInsideFlag(
-                pointerX,
-                pointerY
-            );
-
-        if (touchingFlag) {
-
-            hint.classList.add("active");
-
-            /*
-              به محض لمس،
-              یک واکنش کوچک ایجاد می‌کنیم.
-            */
-
-            targetWindX = 0;
-            targetWindY = 0;
-        }
-    }
-
-
-    function pointerMove(e) {
-
-        const p = e;
-
-        const x = p.clientX;
-        const y = p.clientY;
-
-        const now = performance.now();
-
-        const dt =
-            Math.max(
-                8,
-                now - lastPointerTime
-            ) / 1000;
-
-
-        const dx =
-            x - previousPointerX;
-
-        const dy =
-            y - previousPointerY;
-
-
-        pointerSpeedX =
-            dx / dt;
-
-        pointerSpeedY =
-            dy / dt;
-
-
-        pointerX = x;
-        pointerY = y;
-
-
-        /*
-          فقط وقتی انگشت از روی خود پرچم شروع شده
-          باد را کنترل می‌کنیم.
-        */
-
-        if (
-            pointerDown &&
-            touchingFlag
-        ) {
-
-            /*
-              سرعت انگشت را محدود می‌کنیم
-              تا حرکت بیش از حد نشود.
-            */
-
-            const maxSpeed = 1800;
-
-            let sx =
-                Math.max(
-                    -maxSpeed,
-                    Math.min(
-                        maxSpeed,
-                        pointerSpeedX
-                    )
-                );
-
-            let sy =
-                Math.max(
-                    -maxSpeed,
-                    Math.min(
-                        maxSpeed,
-                        pointerSpeedY
-                    )
-                );
-
-
-            /*
-              تبدیل حرکت دست به باد.
-
-              حرکت دست به راست
-              → باد به راست
-
-              حرکت دست به بالا
-              → باد به بالا
-
-              حرکت دست مورب
-              → باد مورب
-
-              حرکت دایره‌ای
-              → جهت باد دائماً تغییر می‌کند.
-            */
-
-            targetWindX =
-                sx * 0.055;
-
-            targetWindY =
-                sy * 0.055;
-
-
-            /*
-              کمی کشش از موقعیت انگشت
-              برای حرکت‌های آهسته.
-            */
-
-            const centerX =
-                flag.x +
-                flag.width * 0.45;
-
-            const centerY =
-                flag.y +
-                flag.height * 0.5;
-
-
-            const positionForceX =
-                (x - centerX) * 0.012;
-
-            const positionForceY =
-                (y - centerY) * 0.012;
-
-
-            targetWindX +=
-                positionForceX;
-
-            targetWindY +=
-                positionForceY;
-
-
-            /*
-              محدود کردن باد
-            */
-
-            const maxWind = 55;
-
-            targetWindX =
-                Math.max(
-                    -maxWind,
-                    Math.min(
-                        maxWind,
-                        targetWindX
-                    )
-                );
-
-            targetWindY =
-                Math.max(
-                    -maxWind,
-                    Math.min(
-                        maxWind,
-                        targetWindY
-                    )
-                );
-        }
-
-
-        previousPointerX = x;
-        previousPointerY = y;
-
-        lastPointerTime = now;
-    }
-
-
-    function pointerEnd() {
-
-        pointerDown = false;
-        touchingFlag = false;
-
-        /*
-          باد ناگهان صفر نمی‌شود.
-          مثل باد واقعی به‌تدریج می‌خوابد.
-        */
-
-        targetWindX *= 0.25;
-        targetWindY *= 0.25;
-    }
-
-
-    canvas.addEventListener(
-        "pointerdown",
-        pointerStart,
-        { passive: true }
-    );
-
-    canvas.addEventListener(
-        "pointermove",
-        pointerMove,
-        { passive: true }
-    );
-
-    canvas.addEventListener(
-        "pointerup",
-        pointerEnd,
-        { passive: true }
-    );
-
-    canvas.addEventListener(
-        "pointercancel",
-        pointerEnd,
-        { passive: true }
-    );
-
-    canvas.addEventListener(
-        "pointerleave",
-        () => {
-            if (pointerDown) {
-                pointerEnd();
-            }
-        },
-        { passive: true }
-    );
-
-
-    /* =========================================================
-       PHYSICS UPDATE
-    ========================================================= */
-
-    function updatePhysics(dt) {
-
-        /*
-          وقتی دست روی صفحه است:
-          باد سریع‌تر دنبال حرکت انگشت می‌رود.
-
-          وقتی رها شده:
-          باد آرام می‌شود.
-        */
-
-        const follow =
-            pointerDown && touchingFlag
-                ? 0.20
-                : 0.035;
-
-
-        windX +=
-            (targetWindX - windX) *
-            follow;
-
-        windY +=
-            (targetWindY - windY) *
-            follow;
-
-
-        /*
-          وقتی انگشت رها شده،
-          باد آرام‌آرام می‌خوابد.
-        */
-
-        if (!pointerDown) {
-
-            targetWindX *= 0.94;
-            targetWindY *= 0.94;
-
-            windX *= 0.992;
-            windY *= 0.992;
-        }
-
-
-        /*
-          وزش طبیعی کوچک
-        */
-
-        const naturalWindX =
-            Math.sin(time * 1.7) *
-            1.4;
-
-        const naturalWindY =
-            Math.sin(time * 1.15 + 2) *
-            0.5;
-
-
-        /*
-          شدت وزش
-        */
-
-        gust =
-            1 +
-            Math.sin(time * 0.7) * 0.08 +
-            Math.sin(time * 1.37) * 0.04;
-
-
-        windVelocityX =
-            windX +
-            naturalWindX;
-
-        windVelocityY =
-            windY +
-            naturalWindY;
-    }
-
-
-    /* =========================================================
-       CLOTH DEFORMATION
-    ========================================================= */
+       CLOTH HEIGHT FIELD
+       ========================================================= */
 
     /*
-      یک نقطه از پارچه را می‌سازد.
+        این تابع شکل واقعی‌نما به پارچه می‌دهد.
 
-      u:
-        فاصله از میله
-        0 = چسبیده به میله
-        1 = لبه آزاد
+        نکته مهم:
 
-      v:
-        ارتفاع
-        0 = بالا
-        1 = پایین
+        نزدیک میله:
+            تقریباً صاف
+
+        وسط:
+            چین‌های عمیق
+
+        لبه آزاد:
+            آزادتر و خمیده‌تر
     */
 
-    function getPoint(u, v, t) {
+
+    function clothHeight(u, v) {
 
         /*
-          نزدیک میله تقریباً ثابت است.
+            envelope
 
-          هرچه به انتهای پرچم برویم،
-          آزادی حرکت بیشتر می‌شود.
+            اتصال به میله ثابت
         */
 
-        const anchor =
-            Math.pow(u, 1.45);
-
-
-        /*
-          موج اصلی در طول پرچم
-        */
-
-        const wave1 =
-            Math.sin(
-                u * Math.PI * 4.0 -
-                t * 3.0
+        const envelope =
+            Math.pow(
+                u,
+                1.35
             );
 
 
         /*
-          موج دوم
+            چین اصلی
         */
 
-        const wave2 =
+        const fold1 =
             Math.sin(
-                u * Math.PI * 8.0 -
-                t * 5.2 +
-                v * 2
+                u * Math.PI * 5.5 +
+                v * Math.PI * 0.45
             );
 
 
         /*
-          موج عمودی
+            چین دوم
         */
 
-        const verticalWave =
+        const fold2 =
             Math.sin(
-                u * Math.PI * 3.0 -
-                t * 2.3 +
-                v * Math.PI
+                u * Math.PI * 11.5 -
+                v * Math.PI * 1.7
             );
 
 
         /*
-          اثر باد دست
-
-          مهم‌ترین قسمت:
-
-          باد X → حرکت افقی پارچه
-          باد Y → حرکت عمودی پارچه
+            چین سوم ریز
         */
 
-        let dx =
-            windVelocityX *
-            anchor *
-            2.0;
-
-        let dy =
-            windVelocityY *
-            anchor *
-            1.7;
+        const fold3 =
+            Math.sin(
+                u * Math.PI * 22 +
+                v * Math.PI * 3.5
+            );
 
 
         /*
-          چین‌های طبیعی پارچه
+            چین عمودی
         */
 
-        dx +=
-            wave1 *
-            18 *
-            anchor *
-            gust;
-
-
-        dy +=
-            wave2 *
-            7 *
-            anchor *
-            gust;
+        const vertical =
+            Math.sin(
+                v * Math.PI * 3 +
+                u * Math.PI * 2
+            );
 
 
         /*
-          پیچش پارچه بر اساس جهت باد
+            ترکیب
         */
 
-        dx +=
-            verticalWave *
-            windVelocityX *
-            0.30 *
-            anchor;
-
-
-        dy +=
-            verticalWave *
-            windVelocityY *
-            0.22 *
-            anchor;
+        let h =
+            fold1 * 0.58 +
+            fold2 * 0.25 +
+            fold3 * 0.10 +
+            vertical * 0.12;
 
 
         /*
-          اثر گرانش خیلی کم
-          برای اینکه پارچه کاملاً خشک نباشد.
+            کاهش چین نزدیک میله
         */
 
-        dy +=
-            Math.sin(v * Math.PI) *
-            2 *
-            anchor;
+        h *= envelope;
 
 
         /*
-          اتصال به میله کاملاً ثابت می‌ماند.
+            کمی خمیدگی کلی
         */
+
+        h +=
+            Math.sin(
+                u * Math.PI
+            ) *
+            0.18;
+
+
+        return h;
+    }
+
+
+    /* =========================================================
+       CLOTH POINT
+       ========================================================= */
+
+    function getPoint(
+        u,
+        v
+    ) {
+
+        const h =
+            clothHeight(
+                u,
+                v
+            );
+
+
+        /*
+            عمق پارچه
+
+            این قسمت باعث می‌شود
+            پارچه کاملاً تخت دیده نشود.
+        */
+
+        const depth =
+            h * DEPTH;
+
+
+        /*
+            کمی تغییر افقی
+            برای لبه‌های چین‌خورده
+        */
+
+        const xWave =
+            Math.sin(
+                v * Math.PI * 2 +
+                u * Math.PI * 7
+            ) *
+            FOLD_X *
+            flag.width *
+            u;
+
+
+        /*
+            کمی تغییر عمودی
+        */
+
+        const yWave =
+            Math.sin(
+                u * Math.PI * 8 +
+                v * Math.PI * 2
+            ) *
+            FOLD_Y *
+            flag.height *
+            u;
+
 
         const x =
             flag.x +
             u * flag.width +
-            dx;
+            xWave;
+
 
         const y =
             flag.y +
             v * flag.height +
-            dy;
+            yWave;
 
 
         return {
             x,
-            y
+            y,
+            z: depth
         };
     }
 
 
     /* =========================================================
-       TRIANGLE IMAGE WARP
-       ========================================================= */
+       BACKGROUND
+    ========================================================= */
 
-    /*
-      برای اینکه عکس پرچم واقعاً همراه پارچه خم شود،
-      تصویر را به مثلث‌های کوچک تقسیم می‌کنیم.
-    */
+    function drawBackground() {
+
+        const gradient =
+            ctx.createRadialGradient(
+                W * 0.52,
+                H * 0.35,
+                10,
+                W * 0.5,
+                H * 0.5,
+                Math.max(W, H)
+            );
+
+
+        gradient.addColorStop(
+            0,
+            "#304968"
+        );
+
+        gradient.addColorStop(
+            0.38,
+            "#1b2d45"
+        );
+
+        gradient.addColorStop(
+            0.72,
+            "#0c1727"
+        );
+
+        gradient.addColorStop(
+            1,
+            "#03070d"
+        );
+
+
+        ctx.fillStyle =
+            gradient;
+
+        ctx.fillRect(
+            0,
+            0,
+            W,
+            H
+        );
+
+
+        /*
+            هاله بسیار ملایم پشت پرچم
+        */
+
+        const glow =
+            ctx.createRadialGradient(
+                W * 0.5,
+                H * 0.45,
+                10,
+                W * 0.5,
+                H * 0.45,
+                W * 0.55
+            );
+
+
+        glow.addColorStop(
+            0,
+            "rgba(255,255,255,0.045)"
+        );
+
+        glow.addColorStop(
+            1,
+            "rgba(255,255,255,0)"
+        );
+
+
+        ctx.fillStyle =
+            glow;
+
+        ctx.fillRect(
+            0,
+            0,
+            W,
+            H
+        );
+    }
+
+
+    /* =========================================================
+       POLE
+    ========================================================= */
+
+    function drawPole() {
+
+        const x =
+            flag.poleX;
+
+
+        /*
+            سایه پشت میله
+        */
+
+        ctx.save();
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.42)";
+
+        ctx.fillRect(
+            x + 6,
+            flag.poleTop + 5,
+            12,
+            flag.poleBottom -
+            flag.poleTop
+        );
+
+
+        /*
+            بدنه فلزی
+        */
+
+        const metal =
+            ctx.createLinearGradient(
+                x - 7,
+                0,
+                x + 9,
+                0
+            );
+
+
+        metal.addColorStop(
+            0,
+            "#272b30"
+        );
+
+        metal.addColorStop(
+            0.20,
+            "#656b72"
+        );
+
+        metal.addColorStop(
+            0.38,
+            "#d9dde0"
+        );
+
+        metal.addColorStop(
+            0.52,
+            "#8b9197"
+        );
+
+        metal.addColorStop(
+            0.75,
+            "#454a50"
+        );
+
+        metal.addColorStop(
+            1,
+            "#1e2227"
+        );
+
+
+        ctx.fillStyle =
+            metal;
+
+
+        ctx.fillRect(
+            x - 5,
+            flag.poleTop,
+            10,
+            flag.poleBottom -
+            flag.poleTop
+        );
+
+
+        /*
+            خط انعکاس
+        */
+
+        ctx.fillStyle =
+            "rgba(255,255,255,0.28)";
+
+        ctx.fillRect(
+            x - 2,
+            flag.poleTop,
+            2,
+            flag.poleBottom -
+            flag.poleTop
+        );
+
+
+        /*
+            گوی بالای میله
+        */
+
+        const ball =
+            ctx.createRadialGradient(
+                x - 4,
+                flag.poleTop - 10,
+                1,
+                x,
+                flag.poleTop - 6,
+                13
+            );
+
+
+        ball.addColorStop(
+            0,
+            "#fff4bb"
+        );
+
+        ball.addColorStop(
+            0.22,
+            "#e5bd55"
+        );
+
+        ball.addColorStop(
+            0.58,
+            "#a9781d"
+        );
+
+        ball.addColorStop(
+            1,
+            "#4c3208"
+        );
+
+
+        ctx.fillStyle =
+            ball;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            x,
+            flag.poleTop - 7,
+            12,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+
+        ctx.restore();
+    }
+
+
+    /* =========================================================
+       FLAG SHADOW
+    ========================================================= */
+
+    function drawFlagShadow() {
+
+        ctx.save();
+
+
+        const shadow =
+            ctx.createRadialGradient(
+                flag.x +
+                flag.width * 0.55,
+
+                flag.y +
+                flag.height * 0.72,
+
+                5,
+
+                flag.x +
+                flag.width * 0.55,
+
+                flag.y +
+                flag.height * 0.72,
+
+                flag.width * 0.58
+            );
+
+
+        shadow.addColorStop(
+            0,
+            "rgba(0,0,0,0.40)"
+        );
+
+        shadow.addColorStop(
+            0.5,
+            "rgba(0,0,0,0.14)"
+        );
+
+        shadow.addColorStop(
+            1,
+            "rgba(0,0,0,0)"
+        );
+
+
+        ctx.fillStyle =
+            shadow;
+
+
+        ctx.fillRect(
+            flag.x - 40,
+            flag.y - 20,
+            flag.width + 80,
+            flag.height + 100
+        );
+
+
+        ctx.restore();
+    }
+
+
+    /* =========================================================
+       TRIANGLE
+    ========================================================= */
 
     function drawTriangle(
-        sx1, sy1,
-        sx2, sy2,
-        sx3, sy3,
+        p1,
+        p2,
+        p3,
 
-        dx1, dy1,
-        dx2, dy2,
-        dx3, dy3
+        sx1,
+        sy1,
+        sx2,
+        sy2,
+        sx3,
+        sy3
     ) {
+
+        /*
+            تبدیل affine
+        */
 
         const det =
             sx1 * (sy2 - sy3) +
@@ -852,55 +803,54 @@
             sx3 * (sy1 - sy2);
 
 
-        if (Math.abs(det) < 0.0001) {
+        if (
+            Math.abs(det) <
+            0.00001
+        ) {
             return;
         }
 
 
-        /*
-          محاسبه تبدیل Affine
-        */
-
         const a =
             (
-                dx1 * (sy2 - sy3) +
-                dx2 * (sy3 - sy1) +
-                dx3 * (sy1 - sy2)
+                p1.x * (sy2 - sy3) +
+                p2.x * (sy3 - sy1) +
+                p3.x * (sy1 - sy2)
             ) / det;
 
 
         const b =
             (
-                dy1 * (sy2 - sy3) +
-                dy2 * (sy3 - sy1) +
-                dy3 * (sy1 - sy2)
+                p1.y * (sy2 - sy3) +
+                p2.y * (sy3 - sy1) +
+                p3.y * (sy1 - sy2)
             ) / det;
 
 
         const c =
             (
-                dx1 * (sx3 - sx2) +
-                dx2 * (sx1 - sx3) +
-                dx3 * (sx2 - sx1)
+                p1.x * (sx3 - sx2) +
+                p2.x * (sx1 - sx3) +
+                p3.x * (sx2 - sx1)
             ) / det;
 
 
         const d =
             (
-                dy1 * (sx3 - sx2) +
-                dy2 * (sx1 - sx3) +
-                dy3 * (sx2 - sx1)
+                p1.y * (sx3 - sx2) +
+                p2.y * (sx1 - sx3) +
+                p3.y * (sx2 - sx1)
             ) / det;
 
 
         const e =
-            dx1 -
+            p1.x -
             a * sx1 -
             c * sy1;
 
 
         const f =
-            dy1 -
+            p1.y -
             b * sx1 -
             d * sy1;
 
@@ -909,14 +859,25 @@
 
 
         /*
-          برش دقیق مثلث
+            برش مثلث
         */
 
         ctx.beginPath();
 
-        ctx.moveTo(dx1, dy1);
-        ctx.lineTo(dx2, dy2);
-        ctx.lineTo(dx3, dy3);
+        ctx.moveTo(
+            p1.x,
+            p1.y
+        );
+
+        ctx.lineTo(
+            p2.x,
+            p2.y
+        );
+
+        ctx.lineTo(
+            p3.x,
+            p3.y
+        );
 
         ctx.closePath();
 
@@ -924,7 +885,7 @@
 
 
         /*
-          اعمال تبدیل تصویر
+            تصویر
         */
 
         ctx.setTransform(
@@ -938,7 +899,7 @@
 
 
         ctx.drawImage(
-            flagImg,
+            flagImage,
             0,
             0
         );
@@ -949,26 +910,31 @@
 
 
     /* =========================================================
-       DRAW FLAG
+       FLAG MESH
     ========================================================= */
 
-    function drawFlag(t) {
+    function drawFlag() {
 
-        if (!imgReady) {
+        if (!imageReady) {
             return;
         }
 
 
-        /*
-          تعداد نقاط پارچه
-        */
-
         const points = [];
 
 
-        for (let row = 0; row <= ROWS; row++) {
+        /*
+            ساخت شبکه پارچه
+        */
+
+        for (
+            let row = 0;
+            row <= ROWS;
+            row++
+        ) {
 
             points[row] = [];
+
 
             const v =
                 row / ROWS;
@@ -987,18 +953,14 @@
                 points[row][col] =
                     getPoint(
                         u,
-                        v,
-                        t
+                        v
                     );
             }
         }
 
 
         /*
-          تصویر اصلی
-
-          برای جلوگیری از تار شدن،
-          مختصات منبع را مستقیماً از تصویر می‌گیریم.
+            رسم هر خانه به دو مثلث
         */
 
         for (
@@ -1039,222 +1001,469 @@
                     points[row + 1][col + 1];
 
 
-                /*
-                  مختصات تصویر
-                */
-
                 const sx1 =
-                    u1 * flagImg.width;
+                    u1 *
+                    flagImage.width;
 
                 const sx2 =
-                    u2 * flagImg.width;
+                    u2 *
+                    flagImage.width;
 
                 const sy1 =
-                    v1 * flagImg.height;
+                    v1 *
+                    flagImage.height;
 
                 const sy2 =
-                    v2 * flagImg.height;
+                    v2 *
+                    flagImage.height;
 
 
                 /*
-                  مثلث اول
+                    مثلث اول
                 */
 
                 drawTriangle(
-                    sx1, sy1,
-                    sx2, sy1,
-                    sx1, sy2,
+                    p00,
+                    p10,
+                    p01,
 
-                    p00.x, p00.y,
-                    p10.x, p10.y,
-                    p01.x, p01.y
+                    sx1,
+                    sy1,
+
+                    sx2,
+                    sy1,
+
+                    sx1,
+                    sy2
                 );
 
 
                 /*
-                  مثلث دوم
+                    مثلث دوم
                 */
 
                 drawTriangle(
-                    sx2, sy1,
-                    sx2, sy2,
-                    sx1, sy2,
+                    p10,
+                    p11,
+                    p01,
 
-                    p10.x, p10.y,
-                    p11.x, p11.y,
-                    p01.x, p01.y
+                    sx2,
+                    sy1,
+
+                    sx2,
+                    sy2,
+
+                    sx1,
+                    sy2
                 );
             }
         }
 
 
         /*
-          لبه‌های ظریف برای واقعی‌تر شدن پارچه
+            =====================================================
+            نورپردازی چین‌های پارچه
+            =====================================================
+        */
+
+
+        ctx.save();
+
+
+        ctx.globalCompositeOperation =
+            "multiply";
+
+
+        /*
+            چند نوار سایه بسیار نرم
+            روی چین‌ها
+        */
+
+        for (
+            let i = 0;
+            i < 15;
+            i++
+        ) {
+
+            const u =
+                (i + 0.5) / 15;
+
+
+            const x =
+                flag.x +
+                u * flag.width;
+
+
+            const fold =
+                Math.sin(
+                    u * Math.PI * 5.5
+                );
+
+
+            const alpha =
+                Math.abs(fold) *
+                0.085;
+
+
+            const width =
+                flag.width / 15 *
+                0.75;
+
+
+            const gradient =
+                ctx.createLinearGradient(
+                    x - width,
+                    0,
+                    x + width,
+                    0
+                );
+
+
+            gradient.addColorStop(
+                0,
+                `rgba(0,0,0,0)`
+            );
+
+            gradient.addColorStop(
+                0.5,
+                `rgba(0,0,0,${alpha})`
+            );
+
+            gradient.addColorStop(
+                1,
+                `rgba(0,0,0,0)`
+            );
+
+
+            ctx.fillStyle =
+                gradient;
+
+
+            ctx.fillRect(
+                x - width,
+                flag.y,
+                width * 2,
+                flag.height
+            );
+        }
+
+
+        ctx.restore();
+
+
+        /*
+            نور سرد خیلی ظریف
         */
 
         ctx.save();
 
-        ctx.globalAlpha = 0.10;
+        ctx.globalCompositeOperation =
+            "screen";
 
-        ctx.lineWidth = 1 * DPR;
+        ctx.globalAlpha =
+            0.055;
 
-        ctx.strokeStyle = "#000000";
+
+        const light =
+            ctx.createLinearGradient(
+                flag.x,
+                flag.y,
+                flag.x +
+                flag.width,
+                flag.y +
+                flag.height
+            );
+
+
+        light.addColorStop(
+            0,
+            "#ffffff"
+        );
+
+        light.addColorStop(
+            0.45,
+            "rgba(255,255,255,0)"
+        );
+
+        light.addColorStop(
+            1,
+            "#ffffff"
+        );
+
+
+        ctx.fillStyle =
+            light;
+
+
+        ctx.fillRect(
+            flag.x,
+            flag.y,
+            flag.width,
+            flag.height
+        );
+
+
+        ctx.restore();
+
+
+        /*
+            بافت ریز پارچه
+        */
+
+        drawFabricTexture();
+    }
+
+
+    /* =========================================================
+       FABRIC TEXTURE
+    ========================================================= */
+
+    function drawFabricTexture() {
+
+        /*
+            یک الگوی بسیار ظریف شبیه تار و پود.
+        */
+
+        ctx.save();
+
+
+        ctx.globalAlpha =
+            0.075;
+
+
+        ctx.globalCompositeOperation =
+            "overlay";
+
+
+        const spacing = 3;
+
+
+        /*
+            تار
+        */
+
+        ctx.strokeStyle =
+            "#ffffff";
+
+        ctx.lineWidth =
+            0.45;
 
 
         for (
-            let row = 1;
-            row < ROWS;
-            row += 2
+            let x = flag.x;
+            x < flag.x + flag.width;
+            x += spacing
         ) {
 
             ctx.beginPath();
 
-            for (
-                let col = 0;
-                col <= COLS;
-                col++
-            ) {
+            ctx.moveTo(
+                x,
+                flag.y
+            );
 
-                const p =
-                    points[row][col];
-
-                if (col === 0) {
-                    ctx.moveTo(
-                        p.x,
-                        p.y
-                    );
-                } else {
-                    ctx.lineTo(
-                        p.x,
-                        p.y
-                    );
-                }
-            }
+            ctx.lineTo(
+                x +
+                Math.sin(x * 0.08) * 1.5,
+                flag.y +
+                flag.height
+            );
 
             ctx.stroke();
         }
+
+
+        /*
+            پود
+        */
+
+        ctx.strokeStyle =
+            "#000000";
+
+        ctx.lineWidth =
+            0.45;
+
+
+        for (
+            let y = flag.y;
+            y < flag.y + flag.height;
+            y += spacing
+        ) {
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                flag.x,
+                y
+            );
+
+            ctx.lineTo(
+                flag.x +
+                flag.width,
+                y +
+                Math.sin(y * 0.09) * 1.2
+            );
+
+            ctx.stroke();
+        }
+
 
         ctx.restore();
     }
 
 
     /* =========================================================
-       POLE
+       FLAG EDGE
     ========================================================= */
 
-    function drawPole() {
+    function drawEdge() {
 
-        const poleX =
-            flag.poleX;
+        ctx.save();
 
 
         /*
-          سایه میله
+            لبه آزاد پرچم
+        */
+
+        ctx.beginPath();
+
+
+        for (
+            let i = 0;
+            i <= 50;
+            i++
+        ) {
+
+            const u =
+                i / 50;
+
+
+            const p =
+                getPoint(
+                    u,
+                    0,
+                );
+
+
+            /*
+                لبه پایین
+            */
+
+            const bottom =
+                getPoint(
+                    u,
+                    1
+                );
+
+
+            if (i === 0) {
+
+                ctx.moveTo(
+                    bottom.x,
+                    bottom.y
+                );
+
+            } else {
+
+                ctx.lineTo(
+                    bottom.x,
+                    bottom.y
+                );
+            }
+        }
+
+
+        ctx.strokeStyle =
+            "rgba(0,0,0,0.28)";
+
+        ctx.lineWidth =
+            1.2;
+
+
+        ctx.stroke();
+
+
+        ctx.restore();
+    }
+
+
+    /* =========================================================
+       ATTACHMENT
+    ========================================================= */
+
+    function drawAttachment() {
+
+        const x =
+            flag.poleX + 6;
+
+
+        /*
+            بند اتصال بالایی
         */
 
         ctx.save();
 
         ctx.fillStyle =
-            "rgba(0,0,0,0.25)";
+            "#222";
 
         ctx.fillRect(
-            poleX + 4,
-            flag.poleTop + 4,
-            9,
-            flag.poleBottom -
-            flag.poleTop
-        );
-
-
-        /*
-          خود میله
-        */
-
-        const poleGradient =
-            ctx.createLinearGradient(
-                poleX - 5,
-                0,
-                poleX + 7,
-                0
-            );
-
-        poleGradient.addColorStop(
-            0,
-            "#555"
-        );
-
-        poleGradient.addColorStop(
-            0.35,
-            "#d4d4d4"
-        );
-
-        poleGradient.addColorStop(
-            0.55,
-            "#888"
-        );
-
-        poleGradient.addColorStop(
-            1,
-            "#3f3f3f"
-        );
-
-
-        ctx.fillStyle =
-            poleGradient;
-
-        ctx.fillRect(
-            poleX - 4,
-            flag.poleTop,
+            x - 2,
+            flag.y - 4,
             8,
-            flag.poleBottom -
-            flag.poleTop
+            6
         );
 
 
         /*
-          گوی بالای میله
+            بند اتصال پایینی
         */
 
-        const ballGradient =
-            ctx.createRadialGradient(
-                poleX - 3,
-                flag.poleTop - 7,
-                1,
-                poleX,
-                flag.poleTop - 5,
-                11
-            );
-
-        ballGradient.addColorStop(
-            0,
-            "#fff0a0"
-        );
-
-        ballGradient.addColorStop(
-            0.35,
-            "#d7ad39"
-        );
-
-        ballGradient.addColorStop(
-            1,
-            "#76530d"
+        ctx.fillRect(
+            x - 2,
+            flag.y +
+            flag.height -
+            2,
+            8,
+            6
         );
 
 
-        ctx.fillStyle =
-            ballGradient;
+        /*
+            حلقه‌های فلزی
+        */
+
+        ctx.strokeStyle =
+            "#bfc3c6";
+
+        ctx.lineWidth =
+            2;
+
 
         ctx.beginPath();
 
         ctx.arc(
-            poleX,
-            flag.poleTop - 6,
-            10,
+            x + 2,
+            flag.y,
+            4,
             0,
             Math.PI * 2
         );
 
-        ctx.fill();
+        ctx.stroke();
+
+
+        ctx.beginPath();
+
+        ctx.arc(
+            x + 2,
+            flag.y +
+            flag.height,
+            4,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.stroke();
 
 
         ctx.restore();
@@ -1262,126 +1471,13 @@
 
 
     /* =========================================================
-       BACKGROUND
-    ========================================================= */
+       FINAL RENDER
+       ========================================================= */
 
-    function drawBackground() {
-
-        const bg =
-            ctx.createRadialGradient(
-                W * 0.5,
-                H * 0.3,
-                20,
-                W * 0.5,
-                H * 0.5,
-                Math.max(W, H)
-            );
-
-
-        bg.addColorStop(
-            0,
-            "#263c59"
-        );
-
-        bg.addColorStop(
-            0.55,
-            "#101c2d"
-        );
-
-        bg.addColorStop(
-            1,
-            "#050a12"
-        );
-
-
-        ctx.fillStyle = bg;
-
-        ctx.fillRect(
-            0,
-            0,
-            W,
-            H
-        );
-    }
-
-
-    /* =========================================================
-       SHADOW
-    ========================================================= */
-
-    function drawShadow() {
-
-        const shadow =
-            ctx.createRadialGradient(
-                W / 2,
-                flag.y +
-                flag.height +
-                70,
-
-                5,
-
-                W / 2,
-                flag.y +
-                flag.height +
-                70,
-
-                flag.width * 0.7
-            );
-
-
-        shadow.addColorStop(
-            0,
-            "rgba(0,0,0,0.35)"
-        );
-
-        shadow.addColorStop(
-            1,
-            "rgba(0,0,0,0)"
-        );
-
-
-        ctx.fillStyle =
-            shadow;
-
-        ctx.fillRect(
-            0,
-            0,
-            W,
-            H
-        );
-    }
-
-
-    /* =========================================================
-       MAIN LOOP
-    ========================================================= */
-
-    let lastTime =
-        performance.now();
-
-
-    function frame(now) {
-
-        const dt =
-            Math.min(
-                0.033,
-                (now - lastTime) / 1000
-            );
-
-        lastTime = now;
-
-        time += dt;
-
+    function draw() {
 
         calculateFlag();
 
-        updatePhysics(dt);
-
-
-        /*
-          چون canvas با DPR ساخته شده،
-          تمام نقاشی را در مختصات CSS انجام می‌دهیم.
-        */
 
         ctx.setTransform(
             DPR,
@@ -1403,20 +1499,27 @@
 
         drawBackground();
 
-        drawShadow();
+        drawFlagShadow();
 
         drawPole();
 
-        drawFlag(time);
+        drawFlag();
 
+        drawEdge();
 
-        requestAnimationFrame(frame);
+        drawAttachment();
     }
 
 
-    requestAnimationFrame(frame);
+    /* =========================================================
+       START
+       ========================================================= */
+
+    draw();
+
 
 })();
+
 </script>
 
 </body>
