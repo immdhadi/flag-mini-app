@@ -5,16 +5,17 @@
 <meta charset="UTF-8">
 
 <meta name="viewport"
-      content="width=device-width,
-      initial-scale=1.0,
-      viewport-fit=cover,
-      user-scalable=no">
+content="width=device-width,
+initial-scale=1.0,
+viewport-fit=cover,
+user-scalable=no">
 
 <title>Realistic Flag</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
+
 * {
     box-sizing: border-box;
 }
@@ -23,17 +24,19 @@ html,
 body {
     margin: 0;
     padding: 0;
+
     width: 100%;
     height: 100%;
+
     overflow: hidden;
 
     background:
         radial-gradient(
             ellipse at 48% 42%,
-            #34291d 0%,
-            #20170f 35%,
-            #0d0906 72%,
-            #050302 100%
+            #3a2b1d 0%,
+            #21170e 38%,
+            #0d0805 75%,
+            #030201 100%
         );
 }
 
@@ -42,10 +45,15 @@ body {
 }
 
 canvas {
-    display: block;
+    position: fixed;
+    inset: 0;
+
     width: 100%;
     height: 100%;
+
+    display: block;
 }
+
 </style>
 </head>
 
@@ -64,18 +72,20 @@ const tg =
     window.Telegram.WebApp;
 
 if (tg) {
+
     tg.ready();
     tg.expand();
 
     try {
-        tg.setHeaderColor("#090604");
-        tg.setBackgroundColor("#090604");
+        tg.setHeaderColor("#080503");
+        tg.setBackgroundColor("#080503");
     } catch (e) {}
+
 }
 
 
 /* =========================================================
-   CANVAS / WEBGL
+   WEBGL
 ========================================================= */
 
 const canvas =
@@ -84,185 +94,170 @@ const canvas =
 const gl =
     canvas.getContext("webgl", {
         alpha: false,
-        antialias: true,
-        premultipliedAlpha: false
+        antialias: true
     });
 
 if (!gl) {
-    document.body.innerHTML =
-        "<div style='color:white;padding:30px;text-align:center;font-family:sans-serif'>WebGL روی این دستگاه پشتیبانی نمی‌شود.</div>";
+
+    document.body.innerHTML = `
+        <div style="
+            color:white;
+            font-family:sans-serif;
+            text-align:center;
+            padding:40px;
+        ">
+            WebGL روی این دستگاه پشتیبانی نمی‌شود.
+        </div>
+    `;
+
     throw new Error("WebGL unavailable");
 }
 
 
 /* =========================================================
-   SHADER SOURCES
+   VERTEX SHADER
 ========================================================= */
 
-/*
-   Vertex Shader
-
-   سطح پرچم به تعداد زیادی نقطه تقسیم می‌شود.
-   هر نقطه عمق متفاوت دارد و همین باعث ایجاد
-   چین واقعی‌نما می‌شود.
-*/
-
-const vertexShaderSource = `
+const vertexSource = `
 
 precision highp float;
 
 attribute vec2 a_position;
 attribute vec2 a_uv;
 
-uniform float u_aspect;
-uniform float u_flagAspect;
-
 varying vec2 v_uv;
-varying float v_depth;
+varying float v_wave;
+
+uniform float u_time;
 
 
 /* ---------------------------------------------------------
-   تابع چین پارچه
+   موج پارچه
 --------------------------------------------------------- */
 
-float clothWave(vec2 uv) {
+float fabricWave(vec2 uv) {
 
     float u = uv.x;
     float v = uv.y;
 
     /*
-       چین‌های اصلی و بزرگ
+       موج بزرگ پارچه
     */
 
-    float large =
+    float wave1 =
         sin(
             u * 15.0
-            + v * 1.8
-        ) * 0.70;
+            - u_time * 1.35
+            + v * 1.7
+        );
 
 
     /*
-       چین‌های مورب
+       موج دوم
     */
 
-    float diagonal =
+    float wave2 =
         sin(
             u * 31.0
-            - v * 5.0
-        ) * 0.23;
+            - u_time * 2.1
+            - v * 4.0
+        );
 
 
     /*
-       چین‌های ریز
+       چین ریز
     */
 
-    float small =
+    float wave3 =
         sin(
-            u * 62.0
-            + v * 11.0
-        ) * 0.08;
+            u * 65.0
+            - u_time * 3.0
+            + v * 12.0
+        );
 
 
     /*
-       نزدیک میله تقریباً ثابت
+       نزدیک میله کمتر حرکت کند
     */
 
     float envelope =
         smoothstep(
             0.0,
-            0.28,
+            0.20,
             u
         );
 
 
-    /*
-       ترکیب
-    */
-
     return
-        (large + diagonal + small)
-        * envelope;
+        (
+            wave1 * 0.70
+            +
+            wave2 * 0.22
+            +
+            wave3 * 0.08
+        )
+        *
+        envelope;
 }
 
 
 void main() {
 
-    vec2 uv = a_uv;
-
-    float u = uv.x;
-    float v = uv.y;
-
-
-    /*
-       شدت چین
-    */
+    vec2 uv =
+        a_uv;
 
     float wave =
-        clothWave(uv);
+        fabricWave(uv);
 
 
     /*
-       کمی افت طبیعی در انتهای آزاد
-    */
-
-    float freeEdge =
-        smoothstep(
-            0.55,
-            1.0,
-            u
-        );
-
-
-    /*
-       عمق پارچه
+       عمق چین
     */
 
     float z =
-        wave
-        * 0.17
-        * (0.75 + freeEdge * 0.55);
+        wave * 0.16;
 
 
     /*
-       خم شدن لبه آزاد
-    */
-
-    float edgeCurve =
-        sin(
-            u * 3.14159265
-        ) * 0.025;
-
-
-    /*
-       مختصات صفحه
+       عرض پرچم
     */
 
     float x =
-        (u - 0.5)
+        (uv.x - 0.5)
         * 1.55;
 
 
+    /*
+       ارتفاع پرچم
+    */
+
     float y =
-        (0.5 - v)
-        * 0.92;
+        (0.5 - uv.y)
+        * 0.88;
 
 
     /*
-       لبه آزاد کمی بالا و پایین می‌شود
+       لبه آزاد کمی نامنظم
     */
+
+    float edge =
+        smoothstep(
+            0.52,
+            1.0,
+            uv.x
+        );
+
 
     y +=
         sin(
-            u * 3.14159265
-            + 0.8
+            uv.x * 3.14159
+            - u_time * 0.8
         )
-        * 0.055
-        * freeEdge;
+        *
+        0.045
+        *
+        edge;
 
-
-    /*
-       اعمال عمق
-    */
 
     gl_Position =
         vec4(
@@ -276,8 +271,8 @@ void main() {
     v_uv =
         uv;
 
-    v_depth =
-        z;
+    v_wave =
+        wave;
 }
 
 `;
@@ -287,7 +282,7 @@ void main() {
    FRAGMENT SHADER
 ========================================================= */
 
-const fragmentShaderSource = `
+const fragmentSource = `
 
 precision highp float;
 
@@ -295,7 +290,7 @@ uniform sampler2D u_texture;
 uniform float u_time;
 
 varying vec2 v_uv;
-varying float v_depth;
+varying float v_wave;
 
 
 /* ---------------------------------------------------------
@@ -314,7 +309,7 @@ float hash(vec2 p) {
                 )
             )
         )
-        * 43758.5453123
+        * 43758.5453
     );
 }
 
@@ -329,20 +324,30 @@ float noise(vec2 p) {
 
     f =
         f * f *
-        (3.0 - 2.0 * f);
+        (
+            3.0
+            -
+            2.0 * f
+        );
 
 
     float a =
         hash(i);
 
     float b =
-        hash(i + vec2(1.0, 0.0));
+        hash(
+            i + vec2(1.0, 0.0)
+        );
 
     float c =
-        hash(i + vec2(0.0, 1.0));
+        hash(
+            i + vec2(0.0, 1.0)
+        );
 
     float d =
-        hash(i + vec2(1.0, 1.0));
+        hash(
+            i + vec2(1.0, 1.0)
+        );
 
 
     return mix(
@@ -354,87 +359,109 @@ float noise(vec2 p) {
 
 
 /* ---------------------------------------------------------
-   Fabric height
+   ارتفاع پارچه
 --------------------------------------------------------- */
 
-float fabricHeight(vec2 uv) {
+float cloth(vec2 uv) {
 
-    float u = uv.x;
-    float v = uv.y;
+    float u =
+        uv.x;
+
+    float v =
+        uv.y;
 
 
     float a =
         sin(
             u * 15.0
-            + v * 1.8
+            - u_time * 1.35
+            + v * 1.7
         );
 
 
     float b =
         sin(
             u * 31.0
-            - v * 5.0
+            - u_time * 2.1
+            - v * 4.0
         );
 
 
     float c =
         sin(
-            u * 63.0
-            + v * 10.0
+            u * 65.0
+            - u_time * 3.0
+            + v * 12.0
         );
 
 
     float envelope =
         smoothstep(
             0.0,
-            0.22,
+            0.20,
             u
         );
 
 
     return
-        (a * 0.65
-        + b * 0.24
-        + c * 0.09)
-        * envelope;
+        (
+            a * 0.70
+            +
+            b * 0.22
+            +
+            c * 0.08
+        )
+        *
+        envelope;
 }
 
 
 /* ---------------------------------------------------------
-   Fabric lighting
+   نورپردازی چین
 --------------------------------------------------------- */
 
-float fabricLight(vec2 uv) {
+float clothLighting(vec2 uv) {
 
-    float px = 0.0018;
+    float d =
+        0.0025;
 
 
     float left =
-        fabricHeight(
-            uv - vec2(px, 0.0)
+        cloth(
+            uv -
+            vec2(d, 0.0)
         );
+
 
     float right =
-        fabricHeight(
-            uv + vec2(px, 0.0)
+        cloth(
+            uv +
+            vec2(d, 0.0)
         );
+
 
     float up =
-        fabricHeight(
-            uv + vec2(0.0, px)
+        cloth(
+            uv +
+            vec2(0.0, d)
         );
 
+
     float down =
-        fabricHeight(
-            uv - vec2(0.0, px)
+        cloth(
+            uv -
+            vec2(0.0, d)
         );
 
 
     float dx =
-        (right - left) * 2.2;
+        (right - left)
+        * 2.5;
+
 
     float dy =
-        (up - down) * 2.2;
+        (up - down)
+        * 2.5;
 
 
     vec3 normal =
@@ -448,15 +475,15 @@ float fabricLight(vec2 uv) {
 
 
     /*
-       نور اصلی از بالا و چپ
+       نور سینمایی از بالا چپ
     */
 
-    vec3 lightDirection =
+    vec3 light =
         normalize(
             vec3(
                 -0.65,
                 -0.75,
-                0.95
+                1.0
             )
         );
 
@@ -464,21 +491,19 @@ float fabricLight(vec2 uv) {
     float diffuse =
         dot(
             normal,
-            lightDirection
+            light
         );
 
 
-    diffuse =
-        diffuse * 0.5
-        + 0.5;
-
-
-    return diffuse;
+    return
+        0.55
+        +
+        diffuse * 0.45;
 }
 
 
 /* ---------------------------------------------------------
-   Main
+   MAIN
 --------------------------------------------------------- */
 
 void main() {
@@ -488,13 +513,10 @@ void main() {
 
 
     /*
-       تصویر اصلی
-
-       طرح پرچم کاملاً از flag.jpg
-       گرفته می‌شود.
+       طرح اصلی پرچم
     */
 
-    vec4 tex =
+    vec4 flag =
         texture2D(
             u_texture,
             uv
@@ -505,63 +527,54 @@ void main() {
        نور چین‌ها
     */
 
-    float light =
-        fabricLight(uv);
+    float lighting =
+        clothLighting(uv);
 
 
     /*
-       بافت تار و پود بسیار ریز
+       بافت تار و پود
     */
 
-    float threadX =
+    float thread1 =
         sin(
-            uv.x * 900.0
+            uv.x * 850.0
         );
 
-    float threadY =
+
+    float thread2 =
         sin(
-            uv.y * 900.0
+            uv.y * 850.0
         );
 
 
     float threads =
         (
-            threadX +
-            threadY
-        ) * 0.012;
+            thread1
+            +
+            thread2
+        )
+        * 0.010;
 
 
     /*
-       بافت طبیعی بسیار ظریف
+       نویز خیلی ظریف پارچه
     */
 
     float grain =
         noise(
-            uv * 500.0
+            uv * 450.0
         )
         * 0.025;
 
 
     /*
-       ترکیب نور پارچه
+       نور روی پارچه
     */
-
-    float fabric =
-        0.62
-        + light * 0.55;
-
-
-    /*
-       کمی تغییر نور روی عمق چین
-    */
-
-    fabric +=
-        v_depth * 0.75;
-
 
     vec3 color =
-        tex.rgb
-        * fabric;
+        flag.rgb
+        *
+        lighting;
 
 
     /*
@@ -569,11 +582,25 @@ void main() {
     */
 
     color +=
-        vec3(threads + grain);
+        vec3(
+            threads
+            +
+            grain
+        );
 
 
     /*
-       سایه خیلی نرم در لبه‌ها
+       عمق چین‌ها
+    */
+
+    color *=
+        1.0
+        +
+        v_wave * 0.22;
+
+
+    /*
+       کمی تیرگی در کناره‌ها
     */
 
     float edgeX =
@@ -604,14 +631,14 @@ void main() {
         );
 
 
-    float edge =
-        edgeX *
-        edgeY;
-
-
     color *=
-        0.78 +
-        edge * 0.22;
+        0.80
+        +
+        edgeX
+        *
+        edgeY
+        *
+        0.20;
 
 
     gl_FragColor =
@@ -625,13 +652,10 @@ void main() {
 
 
 /* =========================================================
-   SHADER COMPILER
+   SHADER CREATION
 ========================================================= */
 
-function compileShader(
-    type,
-    source
-) {
+function createShader(type, source) {
 
     const shader =
         gl.createShader(type);
@@ -658,7 +682,7 @@ function compileShader(
         );
 
         throw new Error(
-            "Shader compilation failed"
+            gl.getShaderInfoLog(shader)
         );
     }
 
@@ -668,22 +692,25 @@ function compileShader(
 
 
 const vertexShader =
-    compileShader(
+    createShader(
         gl.VERTEX_SHADER,
-        vertexShaderSource
+        vertexSource
     );
 
 
 const fragmentShader =
-    compileShader(
+    createShader(
         gl.FRAGMENT_SHADER,
-        fragmentShaderSource
+        fragmentSource
     );
 
 
+/* =========================================================
+   PROGRAM
+========================================================= */
+
 const program =
     gl.createProgram();
-
 
 gl.attachShader(
     program,
@@ -712,7 +739,7 @@ if (
     );
 
     throw new Error(
-        "Program linking failed"
+        gl.getProgramInfoLog(program)
     );
 }
 
@@ -723,8 +750,14 @@ gl.useProgram(
 
 
 /* =========================================================
-   FLAG MESH
+   MESH
 ========================================================= */
+
+/*
+   180 × 90
+   تعداد vertices کمتر از 65535 است،
+   بنابراین Uint16 کاملاً کافی است.
+*/
 
 const COLS = 180;
 const ROWS = 90;
@@ -752,7 +785,13 @@ for (
             y / ROWS;
 
 
+        /*
+           position + UV
+        */
+
         vertices.push(
+            u,
+            v,
             u,
             v
         );
@@ -780,11 +819,8 @@ for (
         indices.push(
             i,
             i + 1,
-            i + COLS + 1
-        );
+            i + COLS + 1,
 
-
-        indices.push(
             i + 1,
             i + COLS + 2,
             i + COLS + 1
@@ -794,15 +830,15 @@ for (
 
 
 /* =========================================================
-   POSITION BUFFER
+   BUFFERS
 ========================================================= */
 
-const positionBuffer =
+const vertexBuffer =
     gl.createBuffer();
 
 gl.bindBuffer(
     gl.ARRAY_BUFFER,
-    positionBuffer
+    vertexBuffer
 );
 
 gl.bufferData(
@@ -822,7 +858,7 @@ gl.bindBuffer(
 
 gl.bufferData(
     gl.ELEMENT_ARRAY_BUFFER,
-    new Uint32Array(indices),
+    new Uint16Array(indices),
     gl.STATIC_DRAW
 );
 
@@ -837,6 +873,7 @@ const positionLocation =
         "a_position"
     );
 
+
 const uvLocation =
     gl.getAttribLocation(
         program,
@@ -846,38 +883,37 @@ const uvLocation =
 
 gl.bindBuffer(
     gl.ARRAY_BUFFER,
-    positionBuffer
+    vertexBuffer
 );
+
 
 gl.enableVertexAttribArray(
     positionLocation
 );
+
 
 gl.vertexAttribPointer(
     positionLocation,
     2,
     gl.FLOAT,
     false,
-    0,
+    16,
     0
 );
 
 
-/*
-   UV همان position است
-*/
-
 gl.enableVertexAttribArray(
     uvLocation
 );
+
 
 gl.vertexAttribPointer(
     uvLocation,
     2,
     gl.FLOAT,
     false,
-    0,
-    0
+    16,
+    8
 );
 
 
@@ -891,17 +927,6 @@ const timeLocation =
         "u_time"
     );
 
-const aspectLocation =
-    gl.getUniformLocation(
-        program,
-        "u_aspect"
-    );
-
-const flagAspectLocation =
-    gl.getUniformLocation(
-        program,
-        "u_flagAspect"
-    );
 
 const textureLocation =
     gl.getUniformLocation(
@@ -911,16 +936,87 @@ const textureLocation =
 
 
 /* =========================================================
-   FLAG TEXTURE
+   TEXTURE
 ========================================================= */
 
 const texture =
     gl.createTexture();
 
-const image =
+
+gl.bindTexture(
+    gl.TEXTURE_2D,
+    texture
+);
+
+
+/*
+   یک تصویر موقت سفید
+   تا قبل از لود شدن flag.jpg
+   صفحه سیاه نشود.
+*/
+
+const whitePixel =
+    new Uint8Array([
+        255,
+        255,
+        255,
+        255
+    ]);
+
+
+gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    1,
+    1,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    whitePixel
+);
+
+
+/*
+   مهم:
+   بدون mipmap
+   تا تصاویر با هر ابعادی کار کنند.
+*/
+
+gl.texParameteri(
+    gl.TEXTURE_2D,
+    gl.TEXTURE_MIN_FILTER,
+    gl.LINEAR
+);
+
+gl.texParameteri(
+    gl.TEXTURE_2D,
+    gl.TEXTURE_MAG_FILTER,
+    gl.LINEAR
+);
+
+gl.texParameteri(
+    gl.TEXTURE_2D,
+    gl.TEXTURE_WRAP_S,
+    gl.CLAMP_TO_EDGE
+);
+
+gl.texParameteri(
+    gl.TEXTURE_2D,
+    gl.TEXTURE_WRAP_T,
+    gl.CLAMP_TO_EDGE
+);
+
+
+/* =========================================================
+   LOAD FLAG
+========================================================= */
+
+const flagImage =
     new Image();
 
-image.onload = () => {
+
+flagImage.onload = function () {
 
     gl.bindTexture(
         gl.TEXTURE_2D,
@@ -940,56 +1036,29 @@ image.onload = () => {
         gl.RGBA,
         gl.RGBA,
         gl.UNSIGNED_BYTE,
-        image
+        flagImage
     );
 
 
-    gl.texParameteri(
-        gl.TEXTURE_2D,
-        gl.TEXTURE_MIN_FILTER,
-        gl.LINEAR_MIPMAP_LINEAR
-    );
-
-
-    gl.texParameteri(
-        gl.TEXTURE_2D,
-        gl.TEXTURE_MAG_FILTER,
-        gl.LINEAR
-    );
-
-
-    gl.texParameteri(
-        gl.TEXTURE_2D,
-        gl.TEXTURE_WRAP_S,
-        gl.CLAMP_TO_EDGE
-    );
-
-
-    gl.texParameteri(
-        gl.TEXTURE_2D,
-        gl.TEXTURE_WRAP_T,
-        gl.CLAMP_TO_EDGE
-    );
-
-
-    gl.generateMipmap(
-        gl.TEXTURE_2D
-    );
-
-
-    requestAnimationFrame(
-        render
+    console.log(
+        "flag.jpg loaded:",
+        flagImage.width,
+        flagImage.height
     );
 };
 
 
-/*
-   مهم:
-   همین فایل باید داخل webapp باشد.
-*/
+flagImage.onerror = function () {
 
-image.src =
-    "flag.jpg";
+    console.error(
+        "ERROR: flag.jpg پیدا نشد!"
+    );
+
+};
+
+
+flagImage.src =
+    "./flag.jpg";
 
 
 /* =========================================================
@@ -1005,22 +1074,31 @@ function resize() {
         );
 
 
+    const width =
+        window.innerWidth;
+
+    const height =
+        window.innerHeight;
+
+
     canvas.width =
         Math.floor(
-            window.innerWidth * dpr
+            width * dpr
         );
+
 
     canvas.height =
         Math.floor(
-            window.innerHeight * dpr
+            height * dpr
         );
 
 
     canvas.style.width =
-        window.innerWidth + "px";
+        width + "px";
+
 
     canvas.style.height =
-        window.innerHeight + "px";
+        height + "px";
 
 
     gl.viewport(
@@ -1041,31 +1119,6 @@ resize();
 
 
 /* =========================================================
-   BACKGROUND
-========================================================= */
-
-function drawBackground() {
-
-    /*
-       WebGL کل صفحه را می‌گیرد.
-       پس قبل از پرچم با یک Quad ساده
-       پس‌زمینه ساخته می‌شود.
-    */
-
-    gl.clearColor(
-        0.025,
-        0.015,
-        0.009,
-        1
-    );
-
-    gl.clear(
-        gl.COLOR_BUFFER_BIT
-    );
-}
-
-
-/* =========================================================
    RENDER
 ========================================================= */
 
@@ -1073,7 +1126,22 @@ function render(time) {
 
     resize();
 
-    drawBackground();
+
+    /*
+       پس‌زمینه
+    */
+
+    gl.clearColor(
+        0.025,
+        0.015,
+        0.009,
+        1.0
+    );
+
+
+    gl.clear(
+        gl.COLOR_BUFFER_BIT
+    );
 
 
     gl.useProgram(
@@ -1081,11 +1149,9 @@ function render(time) {
     );
 
 
-    gl.bindTexture(
-        gl.TEXTURE_2D,
-        texture
-    );
-
+    /*
+       زمان
+    */
 
     gl.uniform1f(
         timeLocation,
@@ -1093,16 +1159,18 @@ function render(time) {
     );
 
 
-    gl.uniform1f(
-        aspectLocation,
-        canvas.width /
-        canvas.height
+    /*
+       تکسچر
+    */
+
+    gl.activeTexture(
+        gl.TEXTURE0
     );
 
 
-    gl.uniform1f(
-        flagAspectLocation,
-        1.6
+    gl.bindTexture(
+        gl.TEXTURE_2D,
+        texture
     );
 
 
@@ -1119,7 +1187,7 @@ function render(time) {
     gl.drawElements(
         gl.TRIANGLES,
         indices.length,
-        gl.UNSIGNED_INT,
+        gl.UNSIGNED_SHORT,
         0
     );
 
@@ -1128,6 +1196,17 @@ function render(time) {
         render
     );
 }
+
+
+/*
+   مهم:
+   رندر را بدون منتظر ماندن
+   برای عکس شروع می‌کنیم.
+*/
+
+requestAnimationFrame(
+    render
+);
 
 </script>
 
