@@ -76,17 +76,34 @@ async def health(request: web.Request):
     return web.Response(text="ربات فعال است ✅")
 
 
+async def webapp_index(request: web.Request):
+    index_path = os.path.join(
+        os.path.dirname(__file__),
+        "webapp",
+        "index.html"
+    )
+    return web.FileResponse(index_path)
+
+
 def create_app() -> web.Application:
     app = web.Application()
+
     app.router.add_get("/", health)
     app.router.add_post(WEBHOOK_PATH, handle_webhook)
+
+    # Mini App
+    app.router.add_get("/app/", webapp_index)
+
+    # فایل‌های Mini App
     app.router.add_static(
         "/app/",
         path=os.path.join(os.path.dirname(__file__), "webapp"),
         show_index=False,
     )
+
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
+
     return app
 
 
