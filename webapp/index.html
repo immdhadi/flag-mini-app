@@ -2,164 +2,1422 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+
+<meta
+  name="viewport"
+  content="width=device-width,
+           initial-scale=1.0,
+           viewport-fit=cover,
+           user-scalable=no"
+>
+
 <title>پرچم در اهتزاز</title>
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
 <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    overflow: hidden;
-    background: radial-gradient(circle at 50% 30%, #234 0%, #0f1a2b 65%, #060b13 100%);
-    touch-action: none;
-  }
-  canvas { display: block; }
-  #hint {
-    position: fixed;
-    bottom: 18px;
-    left: 0; right: 0;
-    text-align: center;
-    font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
-    font-size: 13px;
-    color: rgba(255,255,255,0.55);
-  }
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+
+        background:
+            radial-gradient(
+                circle at 50% 30%,
+                #24364f 0%,
+                #101b2b 60%,
+                #050a12 100%
+            );
+
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+    }
+
+    #hint {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(18px + env(safe-area-inset-bottom));
+
+        text-align: center;
+
+        font-family:
+            system-ui,
+            -apple-system,
+            "Segoe UI",
+            Tahoma,
+            sans-serif;
+
+        font-size: 13px;
+        color: rgba(255,255,255,0.58);
+
+        pointer-events: none;
+
+        transition:
+            opacity 0.4s ease,
+            transform 0.4s ease;
+    }
+
+    #hint.active {
+        opacity: 0;
+        transform: translateY(8px);
+    }
 </style>
 </head>
+
 <body>
+
 <canvas id="flagCanvas"></canvas>
-<div id="hint">پرچم با نسیم آروم تکون می‌خوره 🍃</div>
+
+<div id="hint">
+    انگشتت را روی پرچم بکش و باد را کنترل کن 🍃
+</div>
 
 <script>
-(function () {
-  const tg = window.Telegram && window.Telegram.WebApp;
-  if (tg) {
-    tg.ready();
-    tg.expand();
-    document.body.style.background = tg.themeParams && tg.themeParams.bg_color
-      ? tg.themeParams.bg_color
-      : "";
-  }
+(() => {
 
-  const canvas = document.getElementById("flagCanvas");
-  const ctx = canvas.getContext("2d");
-  const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+    /* =========================================================
+       TELEGRAM MINI APP
+    ========================================================= */
 
-  function resize() {
-    canvas.width = Math.floor(window.innerWidth * DPR);
-    canvas.height = Math.floor(window.innerHeight * DPR);
-    canvas.style.width = window.innerWidth + "px";
-    canvas.style.height = window.innerHeight + "px";
-  }
-  window.addEventListener("resize", resize);
-  resize();
+    const tg = window.Telegram && window.Telegram.WebApp;
 
-  // ---------- بارگذاری تصویر پرچم ----------
-  const flagImg = new Image();
-  let imgReady = false;
-  flagImg.onload = () => { imgReady = true; };
-  flagImg.src = "flag.jpg";
+    if (tg) {
+        tg.ready();
+        tg.expand();
 
-  // ---------- پارامترهای موج (اینجا رو می‌تونی برای تغییر ظاهر باد ویرایش کنی) ----------
-  const STRIPS = 80;        // تعداد نوارهای عمودی؛ بیشتر = نرم‌تر ولی سنگین‌تر
-  const AMPLITUDE = 24;     // حداکثر دامنه‌ی تاب‌خوردن در لبه‌ی آزاد پرچم (px)
-  const WAVE_SPEED = 2.1;   // سرعت حرکت موج اصلی
-  const WAVE_FREQ = 2.3;    // تعداد قوس‌های موج اصلی روی طول پرچم
-  const RIPPLE_SPEED = 3.6; // سرعت موج ریز (چروک پارچه)
-  const RIPPLE_FREQ = 6.5;  // تعداد قوس‌های موج ریز
-  const RIPPLE_AMP = 0.32;  // دامنه‌ی موج ریز نسبت به AMPLITUDE
-  const GUST_SPEED = 0.35;  // سرعت تغییر شدت باد (وزش‌های نامنظم)
+        if (tg.setHeaderColor) {
+            try {
+                tg.setHeaderColor("#07101d");
+            } catch (e) {}
+        }
 
-  function waveOffset(u, t) {
-    const envelope = Math.pow(u, 1.25);
-    const gust = 1 + 0.3 * Math.sin(t * GUST_SPEED) + 0.12 * Math.sin(t * GUST_SPEED * 2.7 + 1.3);
-    const main = Math.sin(u * WAVE_FREQ * Math.PI * 2 - t * WAVE_SPEED);
-    const ripple = Math.sin(u * RIPPLE_FREQ * Math.PI * 2 - t * RIPPLE_SPEED) * RIPPLE_AMP;
-    return envelope * (main + ripple) * AMPLITUDE * gust;
-  }
-
-  function drawFallback(flagX, flagY, flagW, flagH) {
-    const colors = ["#1f4fd6", "#ffffff", "#d61f1f"];
-    const bandH = flagH / 3;
-    for (let b = 0; b < 3; b++) {
-      ctx.fillStyle = colors[b];
-      ctx.fillRect(flagX, flagY + b * bandH, flagW, bandH);
-    }
-  }
-
-  function draw(tsMs) {
-    const t = tsMs / 1000;
-    ctx.save();
-    ctx.scale(DPR, DPR);
-    const W = window.innerWidth, H = window.innerHeight;
-    ctx.clearRect(0, 0, W, H);
-
-    const flagW = Math.min(W * 0.72, 460);
-    const flagH = flagW * (imgReady ? flagImg.height / flagImg.width : 0.62);
-    const poleX = W / 2 - flagW / 2 - 12;
-    const poleTopY = H / 2 - flagH / 2 - 50;
-    const poleBottomY = H / 2 + flagH / 2 + 40;
-    const flagX = poleX + 5;
-    const flagY = H / 2 - flagH / 2;
-
-    const grad = ctx.createRadialGradient(W / 2, H / 2 + flagH / 2 + 60, 10, W / 2, H / 2 + flagH / 2 + 60, flagW * 0.6);
-    grad.addColorStop(0, "rgba(0,0,0,0.35)");
-    grad.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-
-    ctx.fillStyle = "#9a9a9a";
-    ctx.fillRect(poleX - 4, poleTopY, 8, poleBottomY - poleTopY);
-    ctx.beginPath();
-    ctx.arc(poleX, poleTopY - 6, 9, 0, Math.PI * 2);
-    ctx.fillStyle = "#d6b13a";
-    ctx.fill();
-
-    if (!imgReady) {
-      drawFallback(flagX, flagY, flagW, flagH);
-      ctx.restore();
-      return;
+        if (tg.setBackgroundColor) {
+            try {
+                tg.setBackgroundColor("#07101d");
+            } catch (e) {}
+        }
     }
 
-    const stripW = flagW / STRIPS;
-    const srcStripW = flagImg.width / STRIPS;
 
-    for (let i = 0; i < STRIPS; i++) {
-      const u1 = i / STRIPS;
-      const u2 = (i + 1) / STRIPS;
-      const y1 = waveOffset(u1, t);
-      const y2 = waveOffset(u2, t);
-      const slope = (y2 - y1) / stripW;
-      const shade = Math.max(-0.38, Math.min(0.38, -slope * 1.6));
+    /* =========================================================
+       CANVAS
+    ========================================================= */
 
-      const x = flagX + i * stripW;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x - 0.5, flagY - AMPLITUDE - 2, stripW + 1.5, flagH + AMPLITUDE * 2 + 4);
-      ctx.clip();
+    const canvas = document.getElementById("flagCanvas");
+    const ctx = canvas.getContext("2d", {
+        alpha: true
+    });
 
-      ctx.drawImage(
-        flagImg,
-        i * srcStripW, 0, srcStripW, flagImg.height,
-        x, flagY + y1, stripW + 1.5, flagH
-      );
+    const hint = document.getElementById("hint");
 
-      ctx.fillStyle = shade >= 0
-        ? `rgba(255,255,255,${shade})`
-        : `rgba(0,0,0,${-shade})`;
-      ctx.fillRect(x - 0.5, flagY - AMPLITUDE - 2, stripW + 1.5, flagH + AMPLITUDE * 2 + 4);
-      ctx.restore();
+    let DPR = Math.min(
+        window.devicePixelRatio || 1,
+        2
+    );
+
+    let W = 0;
+    let H = 0;
+
+
+    function resize() {
+
+        DPR = Math.min(
+            window.devicePixelRatio || 1,
+            2
+        );
+
+        W = window.innerWidth;
+        H = window.innerHeight;
+
+        canvas.width = Math.floor(W * DPR);
+        canvas.height = Math.floor(H * DPR);
+
+        canvas.style.width = W + "px";
+        canvas.style.height = H + "px";
     }
 
-    ctx.restore();
-  }
+    window.addEventListener(
+        "resize",
+        resize,
+        { passive: true }
+    );
 
-  function loop(ts) {
-    draw(ts);
-    requestAnimationFrame(loop);
-  }
-  requestAnimationFrame(loop);
+    resize();
+
+
+    /* =========================================================
+       FLAG IMAGE
+    ========================================================= */
+
+    const flagImg = new Image();
+
+    let imgReady = false;
+
+    flagImg.onload = () => {
+        imgReady = true;
+    };
+
+    flagImg.onerror = () => {
+        imgReady = false;
+    };
+
+    /*
+      چون index.html داخل /app/ است،
+      این مسیر تبدیل می‌شود به:
+
+      /app/flag.jpg
+    */
+    flagImg.src = "flag.jpg";
+
+
+    /* =========================================================
+       PHYSICS
+    ========================================================= */
+
+    /*
+      تعداد نقاط پارچه
+
+      بیشتر = نرم‌تر
+      کمتر = سریع‌تر
+    */
+
+    const COLS = 42;
+    const ROWS = 22;
+
+
+    /*
+      وضعیت باد
+
+      windX:
+        باد افقی
+
+      windY:
+        باد عمودی
+
+      targetWind:
+        جهتی که انگشت تعیین کرده
+
+      wind:
+        مقدار واقعی بعد از نرم شدن
+    */
+
+    let windX = 0;
+    let windY = 0;
+
+    let targetWindX = 0;
+    let targetWindY = 0;
+
+    let windVelocityX = 0;
+    let windVelocityY = 0;
+
+
+    /*
+      شدت کلی حرکت پارچه
+    */
+
+    let gust = 0;
+
+    let time = 0;
+
+
+    /* =========================================================
+       TOUCH / POINTER
+    ========================================================= */
+
+    let pointerDown = false;
+
+    let pointerX = 0;
+    let pointerY = 0;
+
+    let previousPointerX = 0;
+    let previousPointerY = 0;
+
+    let pointerSpeedX = 0;
+    let pointerSpeedY = 0;
+
+    let lastPointerTime = 0;
+
+
+    /*
+      این متغیر مشخص می‌کند
+      لمس واقعاً روی محدوده پرچم بوده یا نه.
+    */
+
+    let touchingFlag = false;
+
+
+    /* =========================================================
+       FLAG GEOMETRY
+    ========================================================= */
+
+    let flag = {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        poleX: 0,
+        poleTop: 0,
+        poleBottom: 0
+    };
+
+
+    function calculateFlag() {
+
+        /*
+          پرچم در مرکز صفحه قرار می‌گیرد.
+        */
+
+        const flagWidth = Math.min(
+            W * 0.78,
+            520
+        );
+
+        let ratio = 0.62;
+
+        if (
+            imgReady &&
+            flagImg.width > 0
+        ) {
+            ratio =
+                flagImg.height /
+                flagImg.width;
+        }
+
+        const flagHeight =
+            flagWidth * ratio;
+
+
+        flag.width = flagWidth;
+        flag.height = flagHeight;
+
+
+        flag.poleX =
+            W / 2 -
+            flagWidth / 2 -
+            18;
+
+
+        flag.x =
+            flag.poleX + 7;
+
+
+        flag.y =
+            H / 2 -
+            flagHeight / 2;
+
+
+        flag.poleTop =
+            flag.y - 65;
+
+
+        flag.poleBottom =
+            flag.y +
+            flagHeight +
+            50;
+    }
+
+
+    /* =========================================================
+       POINTER HELPERS
+    ========================================================= */
+
+    function isInsideFlag(x, y) {
+
+        /*
+          کمی محدوده را بزرگ‌تر می‌کنیم
+          تا لمس کردن راحت‌تر باشد.
+        */
+
+        const padding = 25;
+
+        return (
+            x >= flag.x - padding &&
+            x <= flag.x + flag.width + padding &&
+            y >= flag.y - padding &&
+            y <= flag.y + flag.height + padding
+        );
+    }
+
+
+    function pointerStart(e) {
+
+        const p = e;
+
+        pointerX = p.clientX;
+        pointerY = p.clientY;
+
+        previousPointerX = pointerX;
+        previousPointerY = pointerY;
+
+        lastPointerTime =
+            performance.now();
+
+        pointerSpeedX = 0;
+        pointerSpeedY = 0;
+
+        pointerDown = true;
+
+        touchingFlag =
+            isInsideFlag(
+                pointerX,
+                pointerY
+            );
+
+        if (touchingFlag) {
+
+            hint.classList.add("active");
+
+            /*
+              به محض لمس،
+              یک واکنش کوچک ایجاد می‌کنیم.
+            */
+
+            targetWindX = 0;
+            targetWindY = 0;
+        }
+    }
+
+
+    function pointerMove(e) {
+
+        const p = e;
+
+        const x = p.clientX;
+        const y = p.clientY;
+
+        const now = performance.now();
+
+        const dt =
+            Math.max(
+                8,
+                now - lastPointerTime
+            ) / 1000;
+
+
+        const dx =
+            x - previousPointerX;
+
+        const dy =
+            y - previousPointerY;
+
+
+        pointerSpeedX =
+            dx / dt;
+
+        pointerSpeedY =
+            dy / dt;
+
+
+        pointerX = x;
+        pointerY = y;
+
+
+        /*
+          فقط وقتی انگشت از روی خود پرچم شروع شده
+          باد را کنترل می‌کنیم.
+        */
+
+        if (
+            pointerDown &&
+            touchingFlag
+        ) {
+
+            /*
+              سرعت انگشت را محدود می‌کنیم
+              تا حرکت بیش از حد نشود.
+            */
+
+            const maxSpeed = 1800;
+
+            let sx =
+                Math.max(
+                    -maxSpeed,
+                    Math.min(
+                        maxSpeed,
+                        pointerSpeedX
+                    )
+                );
+
+            let sy =
+                Math.max(
+                    -maxSpeed,
+                    Math.min(
+                        maxSpeed,
+                        pointerSpeedY
+                    )
+                );
+
+
+            /*
+              تبدیل حرکت دست به باد.
+
+              حرکت دست به راست
+              → باد به راست
+
+              حرکت دست به بالا
+              → باد به بالا
+
+              حرکت دست مورب
+              → باد مورب
+
+              حرکت دایره‌ای
+              → جهت باد دائماً تغییر می‌کند.
+            */
+
+            targetWindX =
+                sx * 0.055;
+
+            targetWindY =
+                sy * 0.055;
+
+
+            /*
+              کمی کشش از موقعیت انگشت
+              برای حرکت‌های آهسته.
+            */
+
+            const centerX =
+                flag.x +
+                flag.width * 0.45;
+
+            const centerY =
+                flag.y +
+                flag.height * 0.5;
+
+
+            const positionForceX =
+                (x - centerX) * 0.012;
+
+            const positionForceY =
+                (y - centerY) * 0.012;
+
+
+            targetWindX +=
+                positionForceX;
+
+            targetWindY +=
+                positionForceY;
+
+
+            /*
+              محدود کردن باد
+            */
+
+            const maxWind = 55;
+
+            targetWindX =
+                Math.max(
+                    -maxWind,
+                    Math.min(
+                        maxWind,
+                        targetWindX
+                    )
+                );
+
+            targetWindY =
+                Math.max(
+                    -maxWind,
+                    Math.min(
+                        maxWind,
+                        targetWindY
+                    )
+                );
+        }
+
+
+        previousPointerX = x;
+        previousPointerY = y;
+
+        lastPointerTime = now;
+    }
+
+
+    function pointerEnd() {
+
+        pointerDown = false;
+        touchingFlag = false;
+
+        /*
+          باد ناگهان صفر نمی‌شود.
+          مثل باد واقعی به‌تدریج می‌خوابد.
+        */
+
+        targetWindX *= 0.25;
+        targetWindY *= 0.25;
+    }
+
+
+    canvas.addEventListener(
+        "pointerdown",
+        pointerStart,
+        { passive: true }
+    );
+
+    canvas.addEventListener(
+        "pointermove",
+        pointerMove,
+        { passive: true }
+    );
+
+    canvas.addEventListener(
+        "pointerup",
+        pointerEnd,
+        { passive: true }
+    );
+
+    canvas.addEventListener(
+        "pointercancel",
+        pointerEnd,
+        { passive: true }
+    );
+
+    canvas.addEventListener(
+        "pointerleave",
+        () => {
+            if (pointerDown) {
+                pointerEnd();
+            }
+        },
+        { passive: true }
+    );
+
+
+    /* =========================================================
+       PHYSICS UPDATE
+    ========================================================= */
+
+    function updatePhysics(dt) {
+
+        /*
+          وقتی دست روی صفحه است:
+          باد سریع‌تر دنبال حرکت انگشت می‌رود.
+
+          وقتی رها شده:
+          باد آرام می‌شود.
+        */
+
+        const follow =
+            pointerDown && touchingFlag
+                ? 0.20
+                : 0.035;
+
+
+        windX +=
+            (targetWindX - windX) *
+            follow;
+
+        windY +=
+            (targetWindY - windY) *
+            follow;
+
+
+        /*
+          وقتی انگشت رها شده،
+          باد آرام‌آرام می‌خوابد.
+        */
+
+        if (!pointerDown) {
+
+            targetWindX *= 0.94;
+            targetWindY *= 0.94;
+
+            windX *= 0.992;
+            windY *= 0.992;
+        }
+
+
+        /*
+          وزش طبیعی کوچک
+        */
+
+        const naturalWindX =
+            Math.sin(time * 1.7) *
+            1.4;
+
+        const naturalWindY =
+            Math.sin(time * 1.15 + 2) *
+            0.5;
+
+
+        /*
+          شدت وزش
+        */
+
+        gust =
+            1 +
+            Math.sin(time * 0.7) * 0.08 +
+            Math.sin(time * 1.37) * 0.04;
+
+
+        windVelocityX =
+            windX +
+            naturalWindX;
+
+        windVelocityY =
+            windY +
+            naturalWindY;
+    }
+
+
+    /* =========================================================
+       CLOTH DEFORMATION
+    ========================================================= */
+
+    /*
+      یک نقطه از پارچه را می‌سازد.
+
+      u:
+        فاصله از میله
+        0 = چسبیده به میله
+        1 = لبه آزاد
+
+      v:
+        ارتفاع
+        0 = بالا
+        1 = پایین
+    */
+
+    function getPoint(u, v, t) {
+
+        /*
+          نزدیک میله تقریباً ثابت است.
+
+          هرچه به انتهای پرچم برویم،
+          آزادی حرکت بیشتر می‌شود.
+        */
+
+        const anchor =
+            Math.pow(u, 1.45);
+
+
+        /*
+          موج اصلی در طول پرچم
+        */
+
+        const wave1 =
+            Math.sin(
+                u * Math.PI * 4.0 -
+                t * 3.0
+            );
+
+
+        /*
+          موج دوم
+        */
+
+        const wave2 =
+            Math.sin(
+                u * Math.PI * 8.0 -
+                t * 5.2 +
+                v * 2
+            );
+
+
+        /*
+          موج عمودی
+        */
+
+        const verticalWave =
+            Math.sin(
+                u * Math.PI * 3.0 -
+                t * 2.3 +
+                v * Math.PI
+            );
+
+
+        /*
+          اثر باد دست
+
+          مهم‌ترین قسمت:
+
+          باد X → حرکت افقی پارچه
+          باد Y → حرکت عمودی پارچه
+        */
+
+        let dx =
+            windVelocityX *
+            anchor *
+            2.0;
+
+        let dy =
+            windVelocityY *
+            anchor *
+            1.7;
+
+
+        /*
+          چین‌های طبیعی پارچه
+        */
+
+        dx +=
+            wave1 *
+            18 *
+            anchor *
+            gust;
+
+
+        dy +=
+            wave2 *
+            7 *
+            anchor *
+            gust;
+
+
+        /*
+          پیچش پارچه بر اساس جهت باد
+        */
+
+        dx +=
+            verticalWave *
+            windVelocityX *
+            0.30 *
+            anchor;
+
+
+        dy +=
+            verticalWave *
+            windVelocityY *
+            0.22 *
+            anchor;
+
+
+        /*
+          اثر گرانش خیلی کم
+          برای اینکه پارچه کاملاً خشک نباشد.
+        */
+
+        dy +=
+            Math.sin(v * Math.PI) *
+            2 *
+            anchor;
+
+
+        /*
+          اتصال به میله کاملاً ثابت می‌ماند.
+        */
+
+        const x =
+            flag.x +
+            u * flag.width +
+            dx;
+
+        const y =
+            flag.y +
+            v * flag.height +
+            dy;
+
+
+        return {
+            x,
+            y
+        };
+    }
+
+
+    /* =========================================================
+       TRIANGLE IMAGE WARP
+       ========================================================= */
+
+    /*
+      برای اینکه عکس پرچم واقعاً همراه پارچه خم شود،
+      تصویر را به مثلث‌های کوچک تقسیم می‌کنیم.
+    */
+
+    function drawTriangle(
+        sx1, sy1,
+        sx2, sy2,
+        sx3, sy3,
+
+        dx1, dy1,
+        dx2, dy2,
+        dx3, dy3
+    ) {
+
+        const det =
+            sx1 * (sy2 - sy3) +
+            sx2 * (sy3 - sy1) +
+            sx3 * (sy1 - sy2);
+
+
+        if (Math.abs(det) < 0.0001) {
+            return;
+        }
+
+
+        /*
+          محاسبه تبدیل Affine
+        */
+
+        const a =
+            (
+                dx1 * (sy2 - sy3) +
+                dx2 * (sy3 - sy1) +
+                dx3 * (sy1 - sy2)
+            ) / det;
+
+
+        const b =
+            (
+                dy1 * (sy2 - sy3) +
+                dy2 * (sy3 - sy1) +
+                dy3 * (sy1 - sy2)
+            ) / det;
+
+
+        const c =
+            (
+                dx1 * (sx3 - sx2) +
+                dx2 * (sx1 - sx3) +
+                dx3 * (sx2 - sx1)
+            ) / det;
+
+
+        const d =
+            (
+                dy1 * (sx3 - sx2) +
+                dy2 * (sx1 - sx3) +
+                dy3 * (sx2 - sx1)
+            ) / det;
+
+
+        const e =
+            dx1 -
+            a * sx1 -
+            c * sy1;
+
+
+        const f =
+            dy1 -
+            b * sx1 -
+            d * sy1;
+
+
+        ctx.save();
+
+
+        /*
+          برش دقیق مثلث
+        */
+
+        ctx.beginPath();
+
+        ctx.moveTo(dx1, dy1);
+        ctx.lineTo(dx2, dy2);
+        ctx.lineTo(dx3, dy3);
+
+        ctx.closePath();
+
+        ctx.clip();
+
+
+        /*
+          اعمال تبدیل تصویر
+        */
+
+        ctx.setTransform(
+            DPR * a,
+            DPR * b,
+            DPR * c,
+            DPR * d,
+            DPR * e,
+            DPR * f
+        );
+
+
+        ctx.drawImage(
+            flagImg,
+            0,
+            0
+        );
+
+
+        ctx.restore();
+    }
+
+
+    /* =========================================================
+       DRAW FLAG
+    ========================================================= */
+
+    function drawFlag(t) {
+
+        if (!imgReady) {
+            return;
+        }
+
+
+        /*
+          تعداد نقاط پارچه
+        */
+
+        const points = [];
+
+
+        for (let row = 0; row <= ROWS; row++) {
+
+            points[row] = [];
+
+            const v =
+                row / ROWS;
+
+
+            for (
+                let col = 0;
+                col <= COLS;
+                col++
+            ) {
+
+                const u =
+                    col / COLS;
+
+
+                points[row][col] =
+                    getPoint(
+                        u,
+                        v,
+                        t
+                    );
+            }
+        }
+
+
+        /*
+          تصویر اصلی
+
+          برای جلوگیری از تار شدن،
+          مختصات منبع را مستقیماً از تصویر می‌گیریم.
+        */
+
+        for (
+            let row = 0;
+            row < ROWS;
+            row++
+        ) {
+
+            for (
+                let col = 0;
+                col < COLS;
+                col++
+            ) {
+
+                const u1 =
+                    col / COLS;
+
+                const u2 =
+                    (col + 1) / COLS;
+
+                const v1 =
+                    row / ROWS;
+
+                const v2 =
+                    (row + 1) / ROWS;
+
+
+                const p00 =
+                    points[row][col];
+
+                const p10 =
+                    points[row][col + 1];
+
+                const p01 =
+                    points[row + 1][col];
+
+                const p11 =
+                    points[row + 1][col + 1];
+
+
+                /*
+                  مختصات تصویر
+                */
+
+                const sx1 =
+                    u1 * flagImg.width;
+
+                const sx2 =
+                    u2 * flagImg.width;
+
+                const sy1 =
+                    v1 * flagImg.height;
+
+                const sy2 =
+                    v2 * flagImg.height;
+
+
+                /*
+                  مثلث اول
+                */
+
+                drawTriangle(
+                    sx1, sy1,
+                    sx2, sy1,
+                    sx1, sy2,
+
+                    p00.x, p00.y,
+                    p10.x, p10.y,
+                    p01.x, p01.y
+                );
+
+
+                /*
+                  مثلث دوم
+                */
+
+                drawTriangle(
+                    sx2, sy1,
+                    sx2, sy2,
+                    sx1, sy2,
+
+                    p10.x, p10.y,
+                    p11.x, p11.y,
+                    p01.x, p01.y
+                );
+            }
+        }
+
+
+        /*
+          لبه‌های ظریف برای واقعی‌تر شدن پارچه
+        */
+
+        ctx.save();
+
+        ctx.globalAlpha = 0.10;
+
+        ctx.lineWidth = 1 * DPR;
+
+        ctx.strokeStyle = "#000000";
+
+
+        for (
+            let row = 1;
+            row < ROWS;
+            row += 2
+        ) {
+
+            ctx.beginPath();
+
+            for (
+                let col = 0;
+                col <= COLS;
+                col++
+            ) {
+
+                const p =
+                    points[row][col];
+
+                if (col === 0) {
+                    ctx.moveTo(
+                        p.x,
+                        p.y
+                    );
+                } else {
+                    ctx.lineTo(
+                        p.x,
+                        p.y
+                    );
+                }
+            }
+
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+
+    /* =========================================================
+       POLE
+    ========================================================= */
+
+    function drawPole() {
+
+        const poleX =
+            flag.poleX;
+
+
+        /*
+          سایه میله
+        */
+
+        ctx.save();
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.25)";
+
+        ctx.fillRect(
+            poleX + 4,
+            flag.poleTop + 4,
+            9,
+            flag.poleBottom -
+            flag.poleTop
+        );
+
+
+        /*
+          خود میله
+        */
+
+        const poleGradient =
+            ctx.createLinearGradient(
+                poleX - 5,
+                0,
+                poleX + 7,
+                0
+            );
+
+        poleGradient.addColorStop(
+            0,
+            "#555"
+        );
+
+        poleGradient.addColorStop(
+            0.35,
+            "#d4d4d4"
+        );
+
+        poleGradient.addColorStop(
+            0.55,
+            "#888"
+        );
+
+        poleGradient.addColorStop(
+            1,
+            "#3f3f3f"
+        );
+
+
+        ctx.fillStyle =
+            poleGradient;
+
+        ctx.fillRect(
+            poleX - 4,
+            flag.poleTop,
+            8,
+            flag.poleBottom -
+            flag.poleTop
+        );
+
+
+        /*
+          گوی بالای میله
+        */
+
+        const ballGradient =
+            ctx.createRadialGradient(
+                poleX - 3,
+                flag.poleTop - 7,
+                1,
+                poleX,
+                flag.poleTop - 5,
+                11
+            );
+
+        ballGradient.addColorStop(
+            0,
+            "#fff0a0"
+        );
+
+        ballGradient.addColorStop(
+            0.35,
+            "#d7ad39"
+        );
+
+        ballGradient.addColorStop(
+            1,
+            "#76530d"
+        );
+
+
+        ctx.fillStyle =
+            ballGradient;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            poleX,
+            flag.poleTop - 6,
+            10,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+
+        ctx.restore();
+    }
+
+
+    /* =========================================================
+       BACKGROUND
+    ========================================================= */
+
+    function drawBackground() {
+
+        const bg =
+            ctx.createRadialGradient(
+                W * 0.5,
+                H * 0.3,
+                20,
+                W * 0.5,
+                H * 0.5,
+                Math.max(W, H)
+            );
+
+
+        bg.addColorStop(
+            0,
+            "#263c59"
+        );
+
+        bg.addColorStop(
+            0.55,
+            "#101c2d"
+        );
+
+        bg.addColorStop(
+            1,
+            "#050a12"
+        );
+
+
+        ctx.fillStyle = bg;
+
+        ctx.fillRect(
+            0,
+            0,
+            W,
+            H
+        );
+    }
+
+
+    /* =========================================================
+       SHADOW
+    ========================================================= */
+
+    function drawShadow() {
+
+        const shadow =
+            ctx.createRadialGradient(
+                W / 2,
+                flag.y +
+                flag.height +
+                70,
+
+                5,
+
+                W / 2,
+                flag.y +
+                flag.height +
+                70,
+
+                flag.width * 0.7
+            );
+
+
+        shadow.addColorStop(
+            0,
+            "rgba(0,0,0,0.35)"
+        );
+
+        shadow.addColorStop(
+            1,
+            "rgba(0,0,0,0)"
+        );
+
+
+        ctx.fillStyle =
+            shadow;
+
+        ctx.fillRect(
+            0,
+            0,
+            W,
+            H
+        );
+    }
+
+
+    /* =========================================================
+       MAIN LOOP
+    ========================================================= */
+
+    let lastTime =
+        performance.now();
+
+
+    function frame(now) {
+
+        const dt =
+            Math.min(
+                0.033,
+                (now - lastTime) / 1000
+            );
+
+        lastTime = now;
+
+        time += dt;
+
+
+        calculateFlag();
+
+        updatePhysics(dt);
+
+
+        /*
+          چون canvas با DPR ساخته شده،
+          تمام نقاشی را در مختصات CSS انجام می‌دهیم.
+        */
+
+        ctx.setTransform(
+            DPR,
+            0,
+            0,
+            DPR,
+            0,
+            0
+        );
+
+
+        ctx.clearRect(
+            0,
+            0,
+            W,
+            H
+        );
+
+
+        drawBackground();
+
+        drawShadow();
+
+        drawPole();
+
+        drawFlag(time);
+
+
+        requestAnimationFrame(frame);
+    }
+
+
+    requestAnimationFrame(frame);
+
 })();
 </script>
+
 </body>
 </html>
